@@ -6,19 +6,18 @@ Description: Breve description du script
 Date: Derniere date de modification
 */
 
-/* ****************************************************************************
-Inclure les librairies de functions que vous voulez utiliser
-**************************************************************************** */
+#include <LibRobus.h>
 
-#include <LibRobus.h> // Essentielle pour utiliser RobUS
+#define VERT 1
+#define BLEU 2
+#define JAUNE 3
+#define ROUGE 4
 
+#define ROBOT_A
+//#define ROBOT_B
 
+#define COULEUR VERT
 
-/* ****************************************************************************
-Variables globales et defines
-**************************************************************************** */
-// -> defines...
-// L'ensemble des fonctions y ont acces
 const float kp=1E-4;
 const float ki=6E-7;
 
@@ -28,70 +27,21 @@ void setup(){
 }
 
 
-/* ****************************************************************************
-Fonctions de boucle infini (loop())
-**************************************************************************** */
-// -> Se fait appeler perpetuellement suite au "setup"
 
 void loop() {
-  /*while (!ROBUS_IsBumper(RIGHT)){delay(10);}
-  
-  forwardPID(0.3,220);
-  tourner(-2);
-  forwardPID(0.3,85);
-  tourner(2);
-  forwardPID(0.3,20);
-  tourner(2);
-  forwardPID(0.3,42);
-  tourner(-2);
-  forwardPID(0.3,78);
-  tourner(2);
-  forwardPID(0.3,20);
-  tourner(-2);
-  forwardPID(0.3,120);
+ 
+
+
+
+
+#ifdef ROBOT_A
+  robot_A();
+#elif defined(ROBOT_B)
+  robot_B();
+#endif
+
 
   stop();
-  delay(500);
-  demitour();
-  stop();
-  delay(500);
-
-  forwardPID(0.2,10);
-
-  forwardPID(0.7,200);
-  */
-
-/*   stop();
-  delay(500);
-  demitour();
-  stop();
-  delay(500);
-
-  forwardPID(0.3,115);
-  tourner(-2);
-  forwardPID(0.3,20);
-
-  tourner(-2);
-  forwardPID(0.3,78);
-  tourner(2);
-  forwardPID(0.3,42);
-  tourner(-2);
-  forwardPID(0.3,20);
-  tourner(-2);
-  forwardPID(0.3,85);
-  tourner(2);
-  forwardPID(0.3,220); */
-
-
-
-
-
-
-robot_A();
-
-delay(100);
-
-  //stop();
 
 }
 void tourner (int x)
@@ -107,52 +57,7 @@ void tourner (int x)
   {
     delay(10);
     nbtours=ENCODER_Read(roue);
-  }
-  //MOTOR_SetSpeed(roue,0);
-
-
-//   if (x>0)
-//   //tourne à droite
-//   {
-    
-
-//     while (x!=0)
-//     {
-//     ENCODER_Reset(0);
-//     nbtours= (ENCODER_Read(0));
-//     MOTOR_SetSpeed(0,0.5);
-    
-//     while ( nbtours < 1995)
-//         {
-//         delay(10);
-//         nbtours=ENCODER_Read(0);
-//         }
-//      x--;
-//     }    
-//   MOTOR_SetSpeed(0,0);
-//   } 
-    
-    
-// if (x<0)
-// //tourne à gauche
-//   {
-    
-
-//     while (x!=0)
-//     {
-//     ENCODER_Reset(1);
-//     nbtours= (ENCODER_Read(1));
-//     MOTOR_SetSpeed(1,0.5);
-    
-//     while ( nbtours < 1995)
-//         {
-//         delay(10);
-//         nbtours=ENCODER_Read(1);
-//         }
-//      x++;
-//     }    
-//   MOTOR_SetSpeed(1,0);
-//   } 
+  } 
 }  
 
 void forwardPID(float base_speed, float distance)
@@ -216,13 +121,96 @@ void stop()
   MOTOR_SetSpeed(LEFT,0);
   MOTOR_SetSpeed(RIGHT,0);
 }
+
+void tournerSurPlace(int x){
+  x*=1995;
+
+  int nbtours = ENCODER_ReadReset(0);
+  ENCODER_Reset(1);
+  MOTOR_SetSpeed(0,0.15);
+  MOTOR_SetSpeed(1,-0.15);
+  while ( nbtours < x)
+    {
+      delay(10);
+      nbtours=(abs(ENCODER_Read(0)) + abs(ENCODER_Read(1)))*0.5;
+    }
+   
+  //MOTOR_SetSpeed(0,0);
+  //MOTOR_SetSpeed(1,0);
+}
+
+int angA(){
+  switch(COULEUR){
+    case VERT: return 1;
+    case JAUNE: return -3;
+    case ROUGE: return -1;
+    case BLEU: return 3;
+  }
+
+  return 0;
+}
+int angB(){
+  switch(COULEUR){
+    case VERT: return -3;
+    case JAUNE: return 1;
+    case ROUGE: return 3;
+    case BLEU: return -1;
+  }
+
+  return 0;
+}
+
+#define VITESSE 0.3f
+
 // Robot A
 void robot_A ()
 {
-  int sonar =  ROBUS_ReadIR(0);
-  Serial.print(sonar);
-  Serial.print("\n");
+  forwardPID(VITESSE, 30);
 
+  tournerSurPlace(angA());
 
+  forwardPID(VITESSE, 115);
 
+  activerPince(false);
+
+  demitour();
+
+  activerPince(true);
+
+  forwardPID(VITESSE, 115);
+
+  tournerSurPlace(-angA());
+  stop();
+
+  activerPince(false);
+
+  forwardPID(-VITESSE, 30);
+}
+
+void robot_B(){
+  forwardPID(VITESSE, 30);
+  stop();
+  
+  activerPince(false);
+
+  tournerSurPlace(angB());
+
+  forwardPID(VITESSE,115);
+  stop();
+
+  activerPince(true);
+}
+
+void activerPince(bool ouvrir){
+  float ANGLE = 90;
+  ANGLE *= ouvrir ? 1 : -1;
+
+  SERVO_Enable(0);
+  SERVO_Enable(1);
+
+  SERVO_SetAngle(0, ANGLE);
+  SERVO_SetAngle(1, -ANGLE);
+
+  SERVO_Disable(0);
+  SERVO_Disable(1);
 }

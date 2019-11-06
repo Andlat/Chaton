@@ -13,10 +13,10 @@ Date: Derniere date de modification
 #define JAUNE 3
 #define ROUGE 4
 
-#define ROBOT_A
+#define ROBOT_B
 //#define ROBOT_B
 
-#define COULEUR VERT
+#define COULEUR JAUNE
 
 const float kp=1E-4;
 const float ki=6E-7;
@@ -27,21 +27,32 @@ void setup(){
 }
 
 
-
+bool stopped = false;
 void loop() {
  
 
 
 
+if(!stopped){
+    SERVO_Enable(0);
+
 
 #ifdef ROBOT_A
   robot_A();
 #elif defined(ROBOT_B)
+  delay(60000);
   robot_B();
 #endif
 
+  SERVO_Disable(0);
 
-  stop();
+
+stop();
+  stopped = true;
+}
+
+delay(1000);
+   
 
 }
 void tourner (int x)
@@ -77,7 +88,7 @@ void forwardPID(float base_speed, float distance)
   MOTOR_SetSpeed(RIGHT, base_speed);
   unsigned long last_time=millis();
 
-  while (total_encoder < goal_encoder)
+  while (abs(total_encoder) < abs(goal_encoder))
   {
     //Delay to ajust at 10Hz
     delay(last_time+100-millis());
@@ -123,13 +134,14 @@ void stop()
 }
 
 void tournerSurPlace(int x){
-  x*=1995;
+  int sign = x < 0 ? -1 : 1;
+  x*=997;
 
   int nbtours = ENCODER_ReadReset(0);
   ENCODER_Reset(1);
-  MOTOR_SetSpeed(0,0.15);
-  MOTOR_SetSpeed(1,-0.15);
-  while ( nbtours < x)
+  MOTOR_SetSpeed(0,sign*0.15);
+  MOTOR_SetSpeed(1,-sign*0.15);
+  while ( abs(nbtours) < abs(x))
     {
       delay(10);
       nbtours=(abs(ENCODER_Read(0)) + abs(ENCODER_Read(1)))*0.5;
@@ -165,52 +177,62 @@ int angB(){
 // Robot A
 void robot_A ()
 {
-  forwardPID(VITESSE, 30);
+  forwardPID(VITESSE, 33);
 
   tournerSurPlace(angA());
 
-  forwardPID(VITESSE, 115);
-
+  forwardPID(VITESSE, 110);
+  stop();
+  delay(1000);
   activerPince(false);
+  stop();
+  delay(1000);
 
   demitour();
 
+  forwardPID(VITESSE, 102);
+  stop();
+  delay(1000);
+
   activerPince(true);
+  forwardPID(-VITESSE, 35);
 
-  forwardPID(VITESSE, 115);
-
-  tournerSurPlace(-angA());
+  tournerSurPlace(1);
   stop();
 
-  activerPince(false);
-
-  forwardPID(-VITESSE, 30);
+  forwardPID(-VITESSE, 50);
 }
 
 void robot_B(){
-  forwardPID(VITESSE, 30);
+  activerPince(true);
   stop();
+  delay(1000);
+
+  forwardPID(VITESSE, 30);
   
   activerPince(false);
+  stop();
+  delay(1000);
 
   tournerSurPlace(angB());
 
-  forwardPID(VITESSE,115);
+  forwardPID(VITESSE,105);
   stop();
+  delay(1000);
 
   activerPince(true);
+  stop();
+  delay(1000);
+  forwardPID(-VITESSE, 30);
 }
 
 void activerPince(bool ouvrir){
-  float ANGLE = 90;
-  ANGLE *= ouvrir ? 1 : -1;
+  float ANGLE = ouvrir ? 45 : 130;
 
-  SERVO_Enable(0);
-  SERVO_Enable(1);
+  //SERVO_Enable(1);
 
   SERVO_SetAngle(0, ANGLE);
-  SERVO_SetAngle(1, -ANGLE);
+  //SERVO_SetAngle(1, -ANGLE);
 
-  SERVO_Disable(0);
-  SERVO_Disable(1);
+  //SERVO_Disable(1);
 }

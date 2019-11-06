@@ -13,10 +13,13 @@ Date: Derniere date de modification
 #define JAUNE 3
 #define ROUGE 4
 
-#define ROBOT_B
+#define ROBOT_A
 //#define ROBOT_B
 
-#define COULEUR JAUNE
+//#define COULEUR VERT
+#define COULEUR ROUGE
+//#define COULEUR JAUNE
+//#define COULEUR ROUGE
 
 const float kp=1E-4;
 const float ki=6E-7;
@@ -40,7 +43,6 @@ if(!stopped){
 #ifdef ROBOT_A
   robot_A();
 #elif defined(ROBOT_B)
-  delay(60000);
   robot_B();
 #endif
 
@@ -177,30 +179,57 @@ int angB(){
 // Robot A
 void robot_A ()
 {
-  forwardPID(VITESSE, 33);
+  int angle_depart = (COULEUR == ROUGE ? -2 : 2);
 
-  tournerSurPlace(angA());
+  //SE RENDRE JUSQU'A LA BALLE
+  if(COULEUR == ROUGE || COULEUR == VERT){
+    tournerSurPlace(angle_depart);
+    forwardPID(VITESSE, 60);
+    tournerSurPlace(-angle_depart);
+    forwardPID(VITESSE, 100);
+    tournerSurPlace(angA());
+    forwardPID(VITESSE, 30);
 
-  forwardPID(VITESSE, 110);
+  }else{//JAUNE et BLEU
+    forwardPID(VITESSE+0.2, 33);
+    tournerSurPlace(angA());
+    forwardPID(VITESSE, 120);
+  }
+
+  
   stop();
   delay(1000);
   activerPince(false);
   stop();
   delay(1000);
-
-  demitour();
-
-  forwardPID(VITESSE, 102);
+  forwardPID(VITESSE-0.1f, 3);
   stop();
   delay(1000);
+  forwardPID(-VITESSE, 30);
 
+ if(COULEUR == ROUGE || COULEUR == VERT){
+    tournerSurPlace(COULEUR == ROUGE ? -3 : 3);
+    forwardPID(VITESSE, 63);
+    tournerSurPlace(angle_depart);
+    forwardPID(VITESSE, 20);
+    forwardPID(VITESSE+0.1f, 30);
+ }else{
+   demitour();
+  forwardPID(VITESSE, 66);
+ }
+
+  stop();
+  delay(1500);
   activerPince(true);
+  delay(1000);
   forwardPID(-VITESSE, 35);
 
-  tournerSurPlace(1);
-  stop();
+  if(COULEUR == JAUNE || COULEUR == BLEU){
+    tournerSurPlace(1);
+    stop();
+  }
 
-  forwardPID(-VITESSE, 50);
+  forwardPID(-VITESSE, 60);
 }
 
 void robot_B(){
@@ -227,12 +256,7 @@ void robot_B(){
 }
 
 void activerPince(bool ouvrir){
-  float ANGLE = ouvrir ? 45 : 130;
-
-  //SERVO_Enable(1);
+  float ANGLE = ouvrir ? 45 : 143;
 
   SERVO_SetAngle(0, ANGLE);
-  //SERVO_SetAngle(1, -ANGLE);
-
-  //SERVO_Disable(1);
 }

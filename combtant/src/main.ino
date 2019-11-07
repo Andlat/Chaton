@@ -236,9 +236,9 @@ void robot_A ()
   activerPince(false);
   stop();
   delay(1000);
- // forwardPID(VITESSE-0.1f, 1);
- // stop();
- // delay(1000);
+  forwardPID(VITESSE-0.1f, 1);
+  stop();
+  delay(1000);
   forwardPID(-VITESSE, 30);
   
 #ifdef UTILISER_CAPTEURS

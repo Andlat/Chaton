@@ -17,10 +17,10 @@ Date: Derniere date de modification
 #define ROUGE 4
 
 //#define ROBOT_A
-#define ROBOT_A
+#define ROBOT_B
 
 //#define COULEUR VERT
-#define COULEUR VERT
+#define COULEUR BLEU
 //#define COULEUR JAUNE
 //#define COULEUR ROUGE
 
@@ -276,8 +276,8 @@ void robot_A ()
 }
 
 void robot_B(){
-  while (!ROBUS_IsBumper(REAR)){delay(10);}
-  //delay(60000);
+   while (!ROBUS_IsBumper(REAR)){delay(10);}
+  delay(60000);
   activerPince(true);
   stop();
   delay(1000);
@@ -285,8 +285,11 @@ void robot_B(){
   forwardPID(VITESSE, 30);
   
   activerPince(false);
+  forwardPID(VITESSE, 10);
   stop();
-  delay(1000);
+  delay(250);
+  forwardPID(-VITESSE, 10);
+  //delay(1000);
 
   tournerSurPlace(angB());
 

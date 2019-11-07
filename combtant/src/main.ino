@@ -236,9 +236,9 @@ void robot_A ()
   activerPince(false);
   stop();
   delay(1000);
-  forwardPID(VITESSE-0.1f, 1);
-  stop();
-  delay(1000);
+ // forwardPID(VITESSE-0.1f, 1);
+ // stop();
+ // delay(1000);
   forwardPID(-VITESSE, 30);
   
 #ifdef UTILISER_CAPTEURS
@@ -255,7 +255,7 @@ void robot_A ()
     forwardPID(VITESSE, 60);//63
     tournerSurPlace(angle_depart);
     forwardPID(VITESSE, 20);
-    forwardPID(VITESSE+0.1f, 30);
+    forwardPID(VITESSE+0.1f, 25);
  }else{
    demitour();
   forwardPID(VITESSE, 66);

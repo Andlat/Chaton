@@ -8,16 +8,19 @@ Date: Derniere date de modification
 
 #include <LibRobus.h>
 
+//#define UTILISER_CAPTEURS
+//#define UTILISER_SUIVEUR
+
 #define VERT 1
 #define BLEU 2
 #define JAUNE 3
 #define ROUGE 4
 
+//#define ROBOT_A
 #define ROBOT_A
-//#define ROBOT_B
 
 //#define COULEUR VERT
-#define COULEUR ROUGE
+#define COULEUR VERT
 //#define COULEUR JAUNE
 //#define COULEUR ROUGE
 
@@ -32,15 +35,17 @@ void setup(){
 
 bool stopped = false;
 void loop() {
- 
 
-
+  //Serial.print(analogRead(A0));
+  //Serial.print("\n");
+  //delay(500);
 
 if(!stopped){
     SERVO_Enable(0);
 
 
 #ifdef ROBOT_A
+  while (!ROBUS_IsBumper(REAR)){delay(10);}
   robot_A();
 #elif defined(ROBOT_B)
   robot_B();
@@ -54,8 +59,6 @@ stop();
 }
 
 delay(1000);
-   
-
 }
 void tourner (int x)
 {
@@ -135,7 +138,7 @@ void stop()
   MOTOR_SetSpeed(RIGHT,0);
 }
 
-void tournerSurPlace(int x){
+void tournerSurPlace(float x){
   int sign = x < 0 ? -1 : 1;
   x*=997;
 
@@ -180,36 +183,76 @@ int angB(){
 void robot_A ()
 {
   int angle_depart = (COULEUR == ROUGE ? -2 : 2);
+  
+  //Pour le detecteur de proximite
+  float ang = 0;
+  bool found = true;
+  float increment = 0.1f;
 
   //SE RENDRE JUSQU'A LA BALLE
   if(COULEUR == ROUGE || COULEUR == VERT){
-    tournerSurPlace(angle_depart);
+   tournerSurPlace(angle_depart);
     forwardPID(VITESSE, 60);
     tournerSurPlace(-angle_depart);
-    forwardPID(VITESSE, 100);
+    forwardPID(VITESSE, 105);
     tournerSurPlace(angA());
-    forwardPID(VITESSE, 30);
 
   }else{//JAUNE et BLEU
     forwardPID(VITESSE+0.2, 33);
     tournerSurPlace(angA());
-    forwardPID(VITESSE, 120);
+    forwardPID(VITESSE, 90);
   }
 
+  forwardPID(VITESSE, 10);
+
+#ifdef UTILISER_CAPTEURS
+  Serial.print(ROBUS_ReadIR(1));
+  while(ROBUS_ReadIR(1) < 150){
+    Serial.print(ROBUS_ReadIR(1));
+    Serial.print('\n');
+
+    tournerSurPlace(increment);
+    ang += increment;
   
+    if(ang >= 0.5f){ Serial.print(ang);Serial.print("AAAAAA\n"); increment *= -1;}
+    else if(ang <= -0.5f){ 
+      found = false;
+      stop();
+      delay(250);
+      break;
+    }
+
+    stop();
+    delay(250);
+  }
+  if(!found){
+    tournerSurPlace(-ang);
+  }
+#endif
+
+  forwardPID(VITESSE, 20);
   stop();
   delay(1000);
   activerPince(false);
   stop();
   delay(1000);
-  forwardPID(VITESSE-0.1f, 3);
+  forwardPID(VITESSE-0.1f, 1);
   stop();
   delay(1000);
   forwardPID(-VITESSE, 30);
+  
+#ifdef UTILISER_CAPTEURS
+   if(found){
+     tournerSurPlace(-ang);
+     stop();
+     delay(500);
+   }
+#endif
 
  if(COULEUR == ROUGE || COULEUR == VERT){
+
     tournerSurPlace(COULEUR == ROUGE ? -3 : 3);
-    forwardPID(VITESSE, 63);
+    forwardPID(VITESSE, 60);//63
     tournerSurPlace(angle_depart);
     forwardPID(VITESSE, 20);
     forwardPID(VITESSE+0.1f, 30);
@@ -233,6 +276,8 @@ void robot_A ()
 }
 
 void robot_B(){
+  while (!ROBUS_IsBumper(REAR)){delay(10);}
+  //delay(60000);
   activerPince(true);
   stop();
   delay(1000);
@@ -245,7 +290,7 @@ void robot_B(){
 
   tournerSurPlace(angB());
 
-  forwardPID(VITESSE,105);
+  forwardPID(VITESSE,120);
   stop();
   delay(1000);
 

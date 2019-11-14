@@ -176,10 +176,10 @@ bool detectObstacle(int capteur_id){
   return false;
 }
 
-void throwObject(){
-  SERVO_SetAngle(SERVO_AVANT_INDEX, 180);
+void throwObject(int servo_id){
+  SERVO_SetAngle(servo_id, 180);
   delay(3000);//Try throwing the object for 3 seconds
-  SERVO_SetAngle(SERVO_AVANT_INDEX, 0);
+  SERVO_SetAngle(servo_id, 0);
 }
 
 /*
@@ -188,10 +188,10 @@ void throwObject(){
  *          false: failed to throw down obstacle,
  *          true: successfully threw down obstacle
  */
-int onObstacle(int capteur_id){
+int onObstacle(int capteur_id, int servo_id){
   if(detectObstacle(capteur_id)){
     stop();
-    throwObject();
+    throwObject(servo_id);
     if(detectObstacle(capteur_id)){//Arm was unable to throw the object
       return false;
     }
@@ -201,7 +201,7 @@ int onObstacle(int capteur_id){
 }
 
 void onObstacle_PID(float base_speed, float last_speed){
-  int onObstacleResult = onObstacle(base_speed > 0 ? CAPTEUR_PROX_AVANT_INDEX : CAPTEUR_PROX_ARRIERE_INDEX);//One Sensor in front and the other in the back. Select which one to check depending on the movement of the robot (goint forwards or backwards)
+  int onObstacleResult = onObstacle(base_speed > 0 ? CAPTEUR_PROX_AVANT_INDEX : CAPTEUR_PROX_ARRIERE_INDEX, base_speed > 0 ? SERVO_AVANT_INDEX : SERVO_ARRIERE_INDEX);//One Sensor in front and the other in the back. Select which one to check depending on the movement of the robot (goint forwards or backwards)
   if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
     if(onObstacleResult == true){
       //Successfully threw down obstacle

@@ -8,14 +8,14 @@ Date: Derniere date de modification
 
 #include <LibRobus.h>
 
-#define PERIMETER 10
+#define PERIMETER 2
 
 #define CAPTEUR_PROX_ARRIERE_INDEX 0
 #define CAPTEUR_PROX_AVANT_INDEX 1
 #define IR_TRIGGER 300 // ~ 15 cm
 
-#define SERVO_ARRIERE_INDEX 0
-#define SERVO_AVANT_INDEX 1
+#define SERVO_ARRIERE_INDEX 1
+#define SERVO_AVANT_INDEX 0
 
 const float kp=1E-4;
 const float ki=6E-7;
@@ -52,19 +52,19 @@ void loop() {
   5: Turn on itself
   6: Stop for a few seconds
    */
-  unsigned mov = random(1) + 1;//6 is good value
-  //distance to do  movement. Max is 5 meters/seconds
-  unsigned dist = random(6) * 100;
+  unsigned mov = 1;//random(6) + 1;//6 choices
+  //distance to do  movement. Max is 2 meters or seconds
+  unsigned dist = 1;//random(2) + 1;//Min is 1
   speed = random(1,4) / 10.f;//Speed between 0.1f and 0.4f
   Serial.print("MOV: ");
   Serial.println(mov);
 
   switch(mov){
     case 1:
-      forwardPID(speed, dist, onObstacle_PID);
+      forwardPID(speed, dist*100, onObstacle_PID);
       break;
     case 2:
-      forwardPID(-speed, dist, onObstacle_PID);
+      forwardPID(-speed, dist*100, onObstacle_PID);
       break;
     case 3: 
       tourner(-dist);
@@ -77,24 +77,26 @@ void loop() {
       break;
     case 6:
       stop();
-      delay(dist*10);
+      delay(dist*1000);
   }
 
-  stop();//Todo remove this after testing !
+  //stop();//Todo remove this after testing !
 
-  delay(100000);
+  //delay(500);
 }
 
 void tourner (int x)
 {
-  int nbtours;
-  int roue = x>0?0:1;//>0 à droite, <0 à gauche
-  x*=997;
-  x*=x>0?1:-1;
+  int nbtours=0;
+  int roue = x>0 ? 0:1;//>0 à droite, <0 à gauche
+
+  x*=1995;
+
   MOTOR_SetSpeed(roue,0.35);
   MOTOR_SetSpeed(!roue,0);
   ENCODER_Reset(roue);
-  while ( nbtours < x)
+
+  while ( abs(nbtours) < abs(x))
   {
     delay(10);
     nbtours=ENCODER_Read(roue);
@@ -177,9 +179,9 @@ bool detectObstacle(int capteur_id){
 }
 
 void throwObject(int servo_id){
-  SERVO_SetAngle(servo_id, 180);
-  delay(3000);//Try throwing the object for 3 seconds
-  SERVO_SetAngle(servo_id, 0);
+  SERVO_SetAngle(servo_id, 40);
+  delay(2000);//Try throwing the object for 3 seconds
+  SERVO_SetAngle(servo_id, 100);
 }
 
 /*
@@ -192,6 +194,7 @@ int onObstacle(int capteur_id, int servo_id){
   if(detectObstacle(capteur_id)){
     stop();
     throwObject(servo_id);
+    delay(1000);
     if(detectObstacle(capteur_id)){//Arm was unable to throw the object
       return false;
     }
@@ -213,7 +216,7 @@ void onObstacle_PID(float base_speed, float last_speed){
       MOTOR_SetSpeed(LEFT, -base_speed);
       MOTOR_SetSpeed(RIGHT, -base_speed);
       delay(2000);
-      stop();
+      //stop();
       return; //Exit the function and do another movement
     }
   }

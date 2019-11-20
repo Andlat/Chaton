@@ -10,8 +10,8 @@ Date: Derniere date de modification
 
 #define PERIMETER 2
 
-#define CAPTEUR_PROX_ARRIERE_INDEX 0
-#define CAPTEUR_PROX_AVANT_INDEX 1
+#define CAPTEUR_PROX_ARRIERE_INDEX 1
+#define CAPTEUR_PROX_AVANT_INDEX 0
 #define IR_TRIGGER 300 // ~ 15 cm
 
 #define SERVO_ARRIERE_INDEX 1
@@ -20,7 +20,7 @@ Date: Derniere date de modification
 const float kp=1E-4;
 const float ki=6E-7;
 
-void forwardPID(float base_speed, float distance, void (*onObstacle)(float,float));
+void forwardPID(float base_speed, float distance, bool (*onObstacle)(float,float));
 void tourner(int x);
 void tournerSurPlace(int x);
 void stop();
@@ -28,20 +28,22 @@ void stop();
 void throwObject();
 bool detectObstacle();
 int onObstacle();
-void onObstacle_PID(float base_speed, float last_speed);
+bool onObstacle_PID(float base_speed, float last_speed);
 
 
 void setup(){
   BoardInit();
   SERVO_Enable(SERVO_ARRIERE_INDEX);
   SERVO_Enable(SERVO_AVANT_INDEX);
+  
+  SERVO_SetAngle(SERVO_AVANT_INDEX, 40);
 }
 
 float speed;
 unsigned started = false;
 void loop() {
-  while(!started && !ROBUS_IsBumper(LEFT)) delay(50);
-  started = true;
+  while(!started && !ROBUS_IsBumper(REAR)) delay(50);
+  //started = true;
 
   //Random movements
   /*
@@ -55,13 +57,14 @@ void loop() {
   unsigned mov = 1;//random(6) + 1;//6 choices
   //distance to do  movement. Max is 2 meters or seconds
   unsigned dist = 1;//random(2) + 1;//Min is 1
-  speed = random(1,4) / 10.f;//Speed between 0.1f and 0.4f
+  speed = 0.2f;//random(1,4) / 10.f;//Speed between 0.1f and 0.4f
   Serial.print("MOV: ");
   Serial.println(mov);
 
   switch(mov){
     case 1:
       forwardPID(speed, dist*100, onObstacle_PID);
+      Serial.print("DDDDD");
       break;
     case 2:
       forwardPID(-speed, dist*100, onObstacle_PID);
@@ -80,7 +83,7 @@ void loop() {
       delay(dist*1000);
   }
 
-  //stop();//Todo remove this after testing !
+  stop();//Todo remove this after testing !
 
   //delay(500);
 }
@@ -103,7 +106,7 @@ void tourner (int x)
   } 
 }  
 
-void forwardPID(float base_speed, float distance, void (*onObstacle)(float,float))
+void forwardPID(float base_speed, float distance, bool (*onObstacle)(float,float))
 {
   //reset the encoders before moving
   ENCODER_Reset(LEFT);
@@ -140,7 +143,7 @@ void forwardPID(float base_speed, float distance, void (*onObstacle)(float,float
     //Serial.println(total_encoder);
     
     for_delay_millis = millis();
-    (*onObstacle)(base_speed, last_speed);
+    if(!((*onObstacle)(base_speed, last_speed))){ Serial.println("21432432");break; }
   }
 
   //MOTOR_SetSpeed(LEFT,0);
@@ -179,9 +182,9 @@ bool detectObstacle(int capteur_id){
 }
 
 void throwObject(int servo_id){
-  SERVO_SetAngle(servo_id, 40);
+  SERVO_SetAngle(servo_id, 120);
   delay(2000);//Try throwing the object for 3 seconds
-  SERVO_SetAngle(servo_id, 100);
+  SERVO_SetAngle(servo_id, 40);
 }
 
 /*
@@ -203,21 +206,23 @@ int onObstacle(int capteur_id, int servo_id){
   return -1;
 }
 
-void onObstacle_PID(float base_speed, float last_speed){
+bool onObstacle_PID(float base_speed, float last_speed){
   int onObstacleResult = onObstacle(base_speed > 0 ? CAPTEUR_PROX_AVANT_INDEX : CAPTEUR_PROX_ARRIERE_INDEX, base_speed > 0 ? SERVO_AVANT_INDEX : SERVO_ARRIERE_INDEX);//One Sensor in front and the other in the back. Select which one to check depending on the movement of the robot (goint forwards or backwards)
   if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
     if(onObstacleResult == true){
       //Successfully threw down obstacle
       //Reset motors to good speed
       MOTOR_SetSpeed(LEFT, base_speed);
-      MOTOR_SetSpeed(RIGHT, last_speed); 
+      MOTOR_SetSpeed(RIGHT, last_speed);
     }
     else{//Failed to throw down object. Go in the opposite direction
       MOTOR_SetSpeed(LEFT, -base_speed);
       MOTOR_SetSpeed(RIGHT, -base_speed);
-      delay(2000);
-      //stop();
-      return; //Exit the function and do another movement
+      delay(1000);
+      //forwardPID(-base_speed, , (void*)
+      stop();
+      return false; //Exit the function and do another movement
     }
   }
+  return true;
 }

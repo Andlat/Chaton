@@ -7,7 +7,8 @@ Date: Derniere date de modification
 */
 
 #include <LibRobus.h>
-
+//#include <Wire.h>
+#include "Adafruit_TCS34725.h"
 #define PERIMETER 2
 
 #define CAPTEUR_PROX_ARRIERE_INDEX 1
@@ -29,14 +30,20 @@ void throwObject();
 bool detectObstacle();
 int onObstacle();
 bool onObstacle_PID(float base_speed, float last_speed);
-
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
 void setup(){
   BoardInit();
   SERVO_Enable(SERVO_ARRIERE_INDEX);
   SERVO_Enable(SERVO_AVANT_INDEX);
-  
+  Serial.begin(9600);
   SERVO_SetAngle(SERVO_AVANT_INDEX, 40);
+   if (tcs.begin()) {
+    Serial.println("Found sensor");
+  } else {
+    Serial.println("No TCS34725 found ... check your connections");
+    while (1); // halt!
+  }
 }
 
 float speed;
@@ -223,6 +230,23 @@ bool onObstacle_PID(float base_speed, float last_speed){
       stop();
       return false; //Exit the function and do another movement
     }
+  }
+  uint16_t clear, red, green, blue;
+  float r;
+  float g;
+  float b;
+  tcs.setInterrupt(false);
+  delay(60); 
+  tcs.getRawData(&red, &green, &blue, &clear);
+  tcs.setInterrupt(true);
+  uint32_t sum = clear;
+  r = red; r /= sum;
+  g = green; g /= sum;
+  b = blue; b /= sum;
+  r *= 256; g *= 256; b *= 256;
+  if (r > 200) {
+    forwardPID(-0.2,15,[](float,float){return true;});
+    return(false);
   }
   return true;
 }

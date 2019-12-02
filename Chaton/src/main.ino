@@ -10,6 +10,7 @@ Date: Derniere date de modification
 //#include <Wire.h>
 #include "Adafruit_TCS34725.h"
 #define PERIMETER 2
+#include <math.h>
 
 #define CAPTEUR_PROX_ARRIERE_INDEX 1
 #define CAPTEUR_PROX_AVANT_INDEX 0
@@ -34,18 +35,80 @@ Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS3472
 
 void setup(){
   BoardInit();
-  SERVO_Enable(SERVO_ARRIERE_INDEX);
-  SERVO_Enable(SERVO_AVANT_INDEX);
+ // SERVO_Enable(SERVO_ARRIERE_INDEX);
+ // SERVO_Enable(SERVO_AVANT_INDEX);
   Serial.begin(9600);
-  SERVO_SetAngle(SERVO_AVANT_INDEX, 40);
+  //SERVO_SetAngle(SERVO_AVANT_INDEX, 40);
+   /*
    if (tcs.begin()) {
     Serial.println("Found sensor");
   } else {
     Serial.println("No TCS34725 found ... check your connections");
     while (1); // halt!
   }
-}
+*/
 
+  Serial2.begin(9600);
+
+  
+  blt();
+ MOTOR_SetSpeed(LEFT,0);
+ MOTOR_SetSpeed(RIGHT,0);
+  
+}
+void blt() {
+  double pos_x=0;
+  double pos_y=0;
+  double vts=0;
+  float rad = 0;
+  bool isEmpty=true;
+while(1) {
+  Serial2.println("IN LOOP");
+
+  isEmpty=true;
+  Serial2.println("Waiting for String");
+  while(!Serial2.available() && isEmpty){
+    
+    String r=Serial2.readStringUntil(';');
+    r.trim();
+    if(r!=""){ Serial2.println("IS EMPTY"); isEmpty=false;}else{continue;}
+    
+    if(r != "ON"){
+      Serial2.println("Exiting");
+      return;
+    }
+    Serial2.println("Received ON");
+
+    r=Serial2.readStringUntil(';');
+    pos_x = r.toDouble();
+    Serial2.print("pos_x: ");
+    Serial2.println(pos_x);
+
+    r=Serial2.readStringUntil(';');
+    pos_y = r.toDouble();
+    Serial2.print("pos_y: ");
+    Serial2.println(pos_y);
+
+    r=Serial2.readStringUntil('\n');
+    vts = r.toDouble();
+    Serial2.print("vts: ");
+    Serial2.println(vts);
+
+    Serial2.flush();
+  }
+
+Serial2.println("DRIVING");
+MOTOR_SetSpeed(LEFT,0);
+ MOTOR_SetSpeed(RIGHT,0);
+ 
+delay(50);
+  rad = atan2(pos_y, pos_x);
+  tournerSurPlaceRad(rad,vts);
+
+  MOTOR_SetSpeed(LEFT,0);
+ MOTOR_SetSpeed(RIGHT,0);
+}
+}
 float speed;
 unsigned started = false;
 void loop() {
@@ -168,12 +231,31 @@ void tournerSurPlace(int x){
   int sign = x < 0 ? -1 : 1;
   x*=997;
 
-  int nbtours = ENCODER_ReadReset(0);
+  int nbtours = 0;
+  ENCODER_Reset(0);
   ENCODER_Reset(1);
   MOTOR_SetSpeed(0,sign*0.15);
   MOTOR_SetSpeed(1,-sign*0.15);
   while ( abs(nbtours) < abs(x))
     {
+      delay(10);
+      nbtours=(abs(ENCODER_Read(0)) + abs(ENCODER_Read(1)))*0.5;
+    }
+}
+
+void tournerSurPlaceRad(float rad, float vts){
+  int sign = rad < 0 ? -1 : 1;
+  rad*=997.f/(PI/4.f);
+
+  int nbtours = 0;
+  ENCODER_Reset(0);
+  ENCODER_Reset(1);
+  MOTOR_SetSpeed(0,sign*rad);
+  MOTOR_SetSpeed(1,-sign*rad);
+
+  while ( abs(nbtours) <= abs(rad))
+    {
+      //Serial.println("ENTREE");
       delay(10);
       nbtours=(abs(ENCODER_Read(0)) + abs(ENCODER_Read(1)))*0.5;
     }
@@ -214,7 +296,7 @@ int onObstacle(int capteur_id, int servo_id){
 }
 
 bool onObstacle_PID(float base_speed, float last_speed){
-  int onObstacleResult = onObstacle(base_speed > 0 ? CAPTEUR_PROX_AVANT_INDEX : CAPTEUR_PROX_ARRIERE_INDEX, base_speed > 0 ? SERVO_AVANT_INDEX : SERVO_ARRIERE_INDEX);//One Sensor in front and the other in the back. Select which one to check depending on the movement of the robot (goint forwards or backwards)
+ /* int onObstacleResult = onObstacle(base_speed > 0 ? CAPTEUR_PROX_AVANT_INDEX : CAPTEUR_PROX_ARRIERE_INDEX, base_speed > 0 ? SERVO_AVANT_INDEX : SERVO_ARRIERE_INDEX);//One Sensor in front and the other in the back. Select which one to check depending on the movement of the robot (goint forwards or backwards)
   if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
     if(onObstacleResult == true){
       //Successfully threw down obstacle
@@ -230,7 +312,7 @@ bool onObstacle_PID(float base_speed, float last_speed){
       stop();
       return false; //Exit the function and do another movement
     }
-  }
+  }*/
   uint16_t clear, red, green, blue;
   float r;
   float g;
@@ -244,7 +326,8 @@ bool onObstacle_PID(float base_speed, float last_speed){
   g = green; g /= sum;
   b = blue; b /= sum;
   r *= 256; g *= 256; b *= 256;
-  if (r > 200) {
+  Serial.println(r);
+  if (r > 60) {
     forwardPID(-0.2,15,[](float,float){return true;});
     return(false);
   }

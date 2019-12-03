@@ -338,42 +338,49 @@ void blt() {
       r.trim();
       //if(r!=""){ Serial2.println("IS EMPTY"); isEmpty=false;}else{continue;}
       
-      //EXIT LOOP IF NOT BEING CONTROLLED
-      if(r != "ON"){
+      
+      if(r == "ON"){//ROBOT IS BEING CONTROLLED
+        isON = true;
+        Serial2.println("Received ON");
+
+        r=Serial2.readStringUntil(';');
+        pos_x = r.toDouble();
+        Serial2.print("pos_x: ");
+        Serial2.println(pos_x);
+
+        r=Serial2.readStringUntil(';');
+        pos_y = r.toDouble();
+        Serial2.print("pos_y: ");
+        Serial2.println(pos_y);
+
+        r=Serial2.readStringUntil('\n');
+        vts = r.toDouble();
+        Serial2.print("vts: ");
+        Serial2.println(vts);
+
+        Serial2.flush();
+
+        Serial.println("DRIVING");
+        MOTOR_SetSpeed(LEFT,0);
+        MOTOR_SetSpeed(RIGHT,0);
+      
+        delay(50);
+        rad = atan2(pos_y, pos_x);
+        tournerSurPlaceRad(rad,vts, static_callback);
+
+        MOTOR_SetSpeed(LEFT,0);
+        MOTOR_SetSpeed(RIGHT,0);
+      }else if("MUSIC"){
+        /************************
+         * CODE POUR LA MUSIQUE
+         ************************/
+
+
+      }else{//EXIT LOOP IF NOT BEING CONTROLLED
         Serial.println("Exiting");
         isON = false;
         return;
-      }
-      isON = true;
-      Serial2.println("Received ON");
-
-      r=Serial2.readStringUntil(';');
-      pos_x = r.toDouble();
-      Serial2.print("pos_x: ");
-      Serial2.println(pos_x);
-
-      r=Serial2.readStringUntil(';');
-      pos_y = r.toDouble();
-      Serial2.print("pos_y: ");
-      Serial2.println(pos_y);
-
-      r=Serial2.readStringUntil('\n');
-      vts = r.toDouble();
-      Serial2.print("vts: ");
-      Serial2.println(vts);
-
-      Serial2.flush();
-
-      Serial.println("DRIVING");
-      MOTOR_SetSpeed(LEFT,0);
-      MOTOR_SetSpeed(RIGHT,0);
-    
-      delay(50);
-      rad = atan2(pos_y, pos_x);
-      tournerSurPlaceRad(rad,vts, static_callback);
-
-      MOTOR_SetSpeed(LEFT,0);
-      MOTOR_SetSpeed(RIGHT,0);
+      }   
     }    
   }while(isON);
 }

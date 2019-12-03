@@ -217,148 +217,11 @@ void tournerSurPlaceRad(float rad, float vts, void (*callback)()){
     }
 }
 
-bool detectObstacle(int capteur_id){
-  Serial.println(ROBUS_ReadIR(capteur_id));
-  if(ROBUS_ReadIR(capteur_id) >= IR_TRIGGER){
-    return true;
-  }
-
-  return false;
-}
-
-void throwObject(int servo_id){
-  SERVO_SetAngle(servo_id, 120);
-  delay(2000);//Try throwing the object for 3 seconds
-  SERVO_SetAngle(servo_id, 40);
-}
-
-/*
- * Tries to throw down the obstacle if it detects one
- * @return -1: no obstacles detected,
- *          false: failed to throw down obstacle,
- *          true: successfully threw down obstacle
- */
-int onObstacle(int capteur_id, int servo_id){
-  if(detectObstacle(capteur_id)){
-    stop();
-    throwObject(servo_id);
-    delay(1000);
-    if(detectObstacle(capteur_id)){//Arm was unable to throw the object
-      return false;
-    }
-    return true;
-  }
-  return -1;
-}
-
-bool sensors_callback(float left_speed, float right_speed){
-/* #####################################################
-                      ON  OBSTACLE
-  ##################################################### */
-  int onObstacleResult = onObstacle(CAPTEUR_PROX_AVANT_INDEX, SERVO_AVANT_INDEX);
-  if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
-    if(onObstacleResult == true){
-      //Successfully threw down obstacle
-      //Reset motors to good speed
-      MOTOR_SetSpeed(LEFT, left_speed);
-      MOTOR_SetSpeed(RIGHT, right_speed);
-    }
-    else{//Failed to throw down object. Go in the opposite direction
-      tournerSurPlace(2, static_callback);
-      forwardPID(left_speed, 10, sensors_callback);//Advance 10 cm before switching to another movement
-      return false; //Exit the function and do another movement
-    }
-  }
-
-/* #####################################################
-            Check color sensor for the permimeter
-  ##################################################### */
-  unsigned r,b,g;
-  readColor(r, b, g);
-  
-  if (b > 60) {
-    stop();
+void Wait(unsigned seconds, void (*callback)()){
+  long time = millis();
+  while(millis()-time < seconds){
+    callback();
     delay(50);
-    tournerSurPlace(2, static_callback);
-    return false;
-  }
-
-/* #####################################################
-                  Check for vibration
-   ##################################################### */
-  static_callback();
-  
-
-  return true;
-}
-
-void readColor(unsigned &r, unsigned &g, unsigned &b){
-  uint16_t clear, red, green, blue;
-
-  tcs.setInterrupt(false);//Light LED
-  delay(60); 
-
-  tcs.getRawData(&red, &green, &blue, &clear);
-  tcs.setInterrupt(true);//Close LED
-
-  uint32_t sum = clear;
-
-  r = red / sum * 256;
-  g = green / sum * 256;
-  b = blue / sum * 256;
-}
-
-void blt() {
-  double pos_x=0;
-  double pos_y=0;
-  double vts=0;
-  float rad = 0;
-  bool isEmpty=true;
-  while(1) {
-    Serial2.println("IN LOOP");
-
-    isEmpty=true;
-    Serial2.println("Waiting for String");
-    while(!Serial2.available() && isEmpty){
-      
-      String r=Serial2.readStringUntil(';');
-      r.trim();
-      if(r!=""){ Serial2.println("IS EMPTY"); isEmpty=false;}else{continue;}
-      
-      if(r != "ON"){
-        Serial2.println("Exiting");
-        return;
-      }
-      Serial2.println("Received ON");
-
-      r=Serial2.readStringUntil(';');
-      pos_x = r.toDouble();
-      Serial2.print("pos_x: ");
-      Serial2.println(pos_x);
-
-      r=Serial2.readStringUntil(';');
-      pos_y = r.toDouble();
-      Serial2.print("pos_y: ");
-      Serial2.println(pos_y);
-
-      r=Serial2.readStringUntil('\n');
-      vts = r.toDouble();
-      Serial2.print("vts: ");
-      Serial2.println(vts);
-
-      Serial2.flush();
-    }
-
-  Serial2.println("DRIVING");
-  MOTOR_SetSpeed(LEFT,0);
-  MOTOR_SetSpeed(RIGHT,0);
-  
-  delay(50);
-    rad = atan2(pos_y, pos_x);
-    tournerSurPlaceRad(rad,vts, static_callback);
-
-    MOTOR_SetSpeed(LEFT,0);
-  MOTOR_SetSpeed(RIGHT,0);
   }
 }
 
@@ -399,15 +262,155 @@ void vibrate(){
   }
 }
 
-void Wait(unsigned seconds, void (*callback)()){
-  long time = millis();
-  while(millis()-time < seconds){
-    callback();
-    delay(50);
+bool detectObstacle(int capteur_id){
+  Serial.println(ROBUS_ReadIR(capteur_id));
+  if(ROBUS_ReadIR(capteur_id) >= IR_TRIGGER){
+    return true;
   }
+
+  return false;
+}
+
+void throwObject(int servo_id){
+  SERVO_SetAngle(servo_id, 120);
+  delay(2000);//Try throwing the object for 3 seconds
+  SERVO_SetAngle(servo_id, 40);
+}
+
+/*
+ * Tries to throw down the obstacle if it detects one
+ * @return -1: no obstacles detected,
+ *          false: failed to throw down obstacle,
+ *          true: successfully threw down obstacle
+ */
+int onObstacle(int capteur_id, int servo_id){
+  if(detectObstacle(capteur_id)){
+    stop();
+    throwObject(servo_id);
+    delay(1000);
+    if(detectObstacle(capteur_id)){//Arm was unable to throw the object
+      return false;
+    }
+    return true;
+  }
+  return -1;
+}
+
+void readColor(unsigned &r, unsigned &g, unsigned &b){
+  uint16_t clear, red, green, blue;
+
+  tcs.setInterrupt(false);//Light LED
+  delay(60); 
+
+  tcs.getRawData(&red, &green, &blue, &clear);
+  tcs.setInterrupt(true);//Close LED
+
+  uint32_t sum = clear;
+
+  r = red / sum * 256;
+  g = green / sum * 256;
+  b = blue / sum * 256;
+}
+
+void blt() {
+  double pos_x=0;
+  double pos_y=0;
+  double vts=0;
+  float rad = 0;
+  //bool isEmpty=true;
+
+  do{
+    Serial2.println("IN LOOP");
+
+    //isEmpty=true;
+    Serial2.println("Waiting for String");
+    if(Serial2.available()/* && isEmpty*/){
+      
+      String r=Serial2.readStringUntil(';');
+      r.trim();
+      //if(r!=""){ Serial2.println("IS EMPTY"); isEmpty=false;}else{continue;}
+      
+      //EXIT LOOP IF NOT BEING CONTROLLED
+      if(r != "ON"){
+        Serial2.println("Exiting");
+        return;
+      }
+      Serial2.println("Received ON");
+
+      r=Serial2.readStringUntil(';');
+      pos_x = r.toDouble();
+      Serial2.print("pos_x: ");
+      Serial2.println(pos_x);
+
+      r=Serial2.readStringUntil(';');
+      pos_y = r.toDouble();
+      Serial2.print("pos_y: ");
+      Serial2.println(pos_y);
+
+      r=Serial2.readStringUntil('\n');
+      vts = r.toDouble();
+      Serial2.print("vts: ");
+      Serial2.println(vts);
+
+      Serial2.flush();
+    }
+
+  Serial2.println("DRIVING");
+  MOTOR_SetSpeed(LEFT,0);
+  MOTOR_SetSpeed(RIGHT,0);
+  
+  delay(50);
+    rad = atan2(pos_y, pos_x);
+    tournerSurPlaceRad(rad,vts, static_callback);
+
+    MOTOR_SetSpeed(LEFT,0);
+  MOTOR_SetSpeed(RIGHT,0);
+  }while(true);
+}
+
+
+bool sensors_callback(float left_speed, float right_speed){
+/* #####################################################
+                      ON  OBSTACLE
+  ##################################################### */
+  int onObstacleResult = onObstacle(CAPTEUR_PROX_AVANT_INDEX, SERVO_AVANT_INDEX);
+  if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
+    if(onObstacleResult == true){
+      //Successfully threw down obstacle
+      //Reset motors to good speed
+      MOTOR_SetSpeed(LEFT, left_speed);
+      MOTOR_SetSpeed(RIGHT, right_speed);
+    }
+    else{//Failed to throw down object. Go in the opposite direction
+      tournerSurPlace(2, static_callback);
+      forwardPID(left_speed, 10, sensors_callback);//Advance 10 cm before switching to another movement
+      return false; //Exit the function and do another movement
+    }
+  }
+
+/* #####################################################
+            Check color sensor for the permimeter
+  ##################################################### */
+  unsigned r,b,g;
+  readColor(r, b, g);
+  
+  if (b > 60) {
+    stop();
+    delay(50);
+    tournerSurPlace(2, static_callback);
+    return false;
+  }
+
+/* #####################################################
+        Check for vibration and bluetooth commands
+   ##################################################### */
+  static_callback();
+  
+  return true;
 }
 
 //Call back used in "static" movements. Movements that do not use the encoders. Meaning, waiting and turning on itself
 void static_callback(){
-  static_callback();
+  vibrate();
+  blt();
 }

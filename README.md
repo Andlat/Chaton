@@ -5,7 +5,7 @@
 # COMMANDES POUR LE BLUETOOTH
 Chaque commande doit être terminée ou séparée par un ;
 
-Voir la fonction blt dans le code pour les details. D'autres cas particuliers peuvent être ajoutés dans le if
+Voir la fonction blt() dans le code pour les details. D'autres cas particuliers peuvent être ajoutés dans le if
 
 Exemples:
 

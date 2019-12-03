@@ -11,5 +11,5 @@ Exemples:
 
 Jouer de la musique: MUSIC;
 
-Faire tourner le robot: X;Y;vitesse;
+Faire tourner le robot: ON;X;Y;vitesse;
 

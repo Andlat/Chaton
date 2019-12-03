@@ -11,6 +11,7 @@ Date: Derniere date de modification
 #include "Adafruit_TCS34725.h"
 
 #include <math.h>
+#include <Wire.h>
 
 #define IR_TRIGGER 300 // ~ 15 cm
 
@@ -61,6 +62,9 @@ void setup(){
 
   //Init bluetooth
   Serial2.begin(38400);
+
+  //Init music port
+  Wire.begin();
 }
 
 float speed;
@@ -374,14 +378,19 @@ void blt() {
         /************************
          * CODE POUR LA MUSIQUE
          ************************/
-
-
+        Wire.beginTransmission(0x05);
+        Wire.write(0x04);
+        int err = Wire.endTransmission();
+        Serial.print("Sent music request: ");
+        Serial.println(err);
       }else{//EXIT LOOP IF NOT BEING CONTROLLED
         Serial.println("Exiting");
         isON = false;
         return;
       }   
-    }    
+    }else{
+      isON=false;
+    }   
   }while(isON);
 }
 

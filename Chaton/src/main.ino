@@ -35,10 +35,14 @@ void Wait(unsigned seconds, void (*callback)());
 void throwObject();
 bool detectObstacle();
 int onObstacle();
+
 bool sensors_callback(float base_speed, float last_speed);
+void static_callback();
 
 void readColor(unsigned &r, unsigned &g, unsigned &b);
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+
+void blt();
 
 void setup(){
   BoardInit();
@@ -56,14 +60,15 @@ void setup(){
   }
 
   //Init bluetooth
-  Serial2.begin(9600);
+  Serial2.begin(38400);
 }
 
 float speed;
 unsigned started = false;
 void loop() {
-  while(!started && !ROBUS_IsBumper(REAR)) delay(50);
-  started = true;
+  Serial.print("Starting...");
+  while(!started && !ROBUS_IsBumper(LEFT)) delay(50);
+  //started = true;
 
   //Random movements
   /*
@@ -99,19 +104,19 @@ void loop() {
       Wait(random(1,6)*1000, static_callback);//Wait between 1 and 5 seconds
   }
 
-  //stop();//Todo remove this after testing !
+  stop();//Todo remove this after testing !
 
   //delay(50);
 }
 
 void tourner (int ang, bool (*sensors_callback)(float,float))
 {
-  float speed = 0.35;
+  float speed = 0.2;
   int nbtours=0;
   int roue = ang>0 ? 0:1;//>0 à droite, <0 à gauche
 
   ang*=PULSES_PAR_DEGRE;
-
+Serial.println(ang);
   MOTOR_SetSpeed(roue,speed);
   MOTOR_SetSpeed(!roue,0);
   ENCODER_Reset(roue);
@@ -317,24 +322,29 @@ void blt() {
   double pos_y=0;
   double vts=0;
   float rad = 0;
+  
   //bool isEmpty=true;
+  bool isON = false;
 
   do{
-    Serial2.println("IN LOOP");
+    //Serial.println("IN LOOP");
 
     //isEmpty=true;
     Serial2.println("Waiting for String");
+    delay(1000);
     if(Serial2.available()/* && isEmpty*/){
-      
+     Serial.println("SERIAL2 AVAILABLE");
       String r=Serial2.readStringUntil(';');
       r.trim();
       //if(r!=""){ Serial2.println("IS EMPTY"); isEmpty=false;}else{continue;}
       
       //EXIT LOOP IF NOT BEING CONTROLLED
       if(r != "ON"){
-        Serial2.println("Exiting");
+        Serial.println("Exiting");
+        isON = false;
         return;
       }
+      isON = true;
       Serial2.println("Received ON");
 
       r=Serial2.readStringUntil(';');
@@ -353,19 +363,19 @@ void blt() {
       Serial2.println(vts);
 
       Serial2.flush();
-    }
 
-  Serial2.println("DRIVING");
-  MOTOR_SetSpeed(LEFT,0);
-  MOTOR_SetSpeed(RIGHT,0);
-  
-  delay(50);
-    rad = atan2(pos_y, pos_x);
-    tournerSurPlaceRad(rad,vts, static_callback);
+      Serial.println("DRIVING");
+      MOTOR_SetSpeed(LEFT,0);
+      MOTOR_SetSpeed(RIGHT,0);
+    
+      delay(50);
+      rad = atan2(pos_y, pos_x);
+      tournerSurPlaceRad(rad,vts, static_callback);
 
-    MOTOR_SetSpeed(LEFT,0);
-  MOTOR_SetSpeed(RIGHT,0);
-  }while(true);
+      MOTOR_SetSpeed(LEFT,0);
+      MOTOR_SetSpeed(RIGHT,0);
+    }    
+  }while(isON);
 }
 
 

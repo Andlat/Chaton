@@ -2,7 +2,7 @@
  Chaton
 
 
-#COMMANDES POUR LE BLUETOOTH
+# COMMANDES POUR LE BLUETOOTH
 Chaque commande doit être terminée ou séparée par un ;
 
 Exemples:

@@ -72,7 +72,7 @@ unsigned started = false;
 void loop() {
   Serial.print("Starting...");
   while(!started && !ROBUS_IsBumper(LEFT)) delay(50);
-  //started = true;
+  started = true;
 
   //Random movements
   /*
@@ -108,7 +108,7 @@ void loop() {
       Wait(random(1,6)*1000, static_callback);//Wait between 1 and 5 seconds
   }
 
-  stop();//Todo remove this after testing !
+  //stop();//Todo remove this after testing !
 
   //delay(50);
 }

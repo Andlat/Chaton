@@ -32,11 +32,11 @@ const float ki=6E-7;
 void forwardPID(float base_speed, float distance, bool (*sensors_callback)(float,float));
 void tourner(int ang, bool (*sensors_callback)(float,float));
 
-void tournerSurPlace(int ang, bool (*callback)());
-void tournerSurPlaceRad(float rad, float vts, bool (*callback)());
+void tournerSurPlace(int ang, bool (*callback)(float,float));
+void tournerSurPlaceRad(float rad, float vts, bool (*callback)(float,float));
 void stop();
 
-void Wait(unsigned seconds, bool (*callback)());
+void Wait(unsigned seconds, bool (*callback)(float,float));
 
 void throwObject();
 bool detectObstacle();
@@ -92,13 +92,21 @@ void loop() {
   while(Serial.available()) {Serial.read();}
   started = true;
 
-  if(ROBUS_IsBumper(RIGHT)){
+   /*if(ROBUS_IsBumper(RIGHT)){
     Serial.println("STOP");
     started=false;
     stop();
     
     return;
   }
+*/
+
+  //forwardPID(0.2f, 20, sensors_callback);
+  Wait(5000, sensors_callback);
+  //forwardPID(-0.2f, 20, sensors_callback);
+  //Wait(5000, sensors_callback);
+
+
 
   //Random movements
   /*
@@ -108,7 +116,7 @@ void loop() {
   5: Turn on itself
   6: Stop for a few seconds
    */
- unsigned mov = random(6) + 1;//5 choices
+ /*unsigned mov = 1;//random(6) + 1;//5 choices
  
   unsigned dist = random(3) + 1;
   speed = 0.1;//random(1,3) / 10.f;//Speed between 0.1f and 0.4f
@@ -137,6 +145,7 @@ void loop() {
   //stop();//Todo remove this after testing !
 
   //delay(50);
+  */
 }
 
 void tourner (int ang, bool (*sensors_callback)(float,float))
@@ -268,11 +277,11 @@ void tournerSurPlaceRad(float rad, float vts, bool (*callback)()){
     }
 }
 
-void Wait(unsigned seconds, bool (*callback)()){
+void Wait(unsigned seconds, bool (*callback)(float,float)){
   long time = millis();
   while(millis()-time < seconds){
-    callback();
-    delay(50);
+    callback(0.2f,0.2f);
+    delay(10);
   }
 }
 
@@ -297,6 +306,9 @@ bool vibrate(){
 
   RES_D=(Mes1_D-Mes2_D);
   RES_G=(Mes1_G-Mes2_G);
+  Serial.println("donnee vibro");
+  Serial.println(RES_D);
+  Serial.println(RES_G);
   
   if(RES_D>25 || RES_D<-25 || RES_G>25 || RES_G<-25)
   {
@@ -416,6 +428,12 @@ int readColor(float &r, float &g, float &b){
   g = green; g /= sum;
   b = blue; b /= sum;
   r *= 256; g *= 256; b *= 256;
+  Serial.print("COLOR: R ");
+  Serial.print(r);
+  Serial.print(" G: ");
+  Serial.print(g);
+  Serial.print(" B: ");
+  Serial.println(b);
   return 0;
 }
 
@@ -513,15 +531,17 @@ bool sensors_callback(float left_speed, float right_speed){
   Serial.println(onObstacleResult);
   if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
     if(onObstacleResult == true){
+       Serial.println("REUSSI TASSER LOBJET");
       //Successfully threw down obstacle
       //Reset motors to good speed
-      MOTOR_SetSpeed(LEFT, left_speed);
-      MOTOR_SetSpeed(RIGHT, right_speed);
+      //MOTOR_SetSpeed(LEFT, left_speed);
+      //MOTOR_SetSpeed(RIGHT, right_speed);
+      return false;
     }
     else{//Failed to throw down object. Go in the opposite direction
       //tournerSurPlace(2, static_callback);
-      Serial.println("test");
-      forwardPID(left_speed !=0?-left_speed:-0.1, 10, sensors_callback);//Reculer 10 cm
+      Serial.println("PAS CAPABLE DE TASSER L'OBJET");
+      //forwardPID(left_speed !=0?-left_speed:-0.1, 10, sensors_callback);//Reculer 10 cm
       return false; //Exit the function and do another movement
     }
   }
@@ -534,24 +554,16 @@ bool sensors_callback(float left_speed, float right_speed){
 
   if (err = 0) {
 
-  Serial.print("COULEUR: R:");
-  Serial.print(r);
-  Serial.print(" G: ");
-  Serial.print(g);
-  Serial.print(" B: ");
-  Serial.println(b);
+    Serial.print("COULEUR: R:");
+    Serial.print(r);
+    Serial.print(" G: ");
+    Serial.print(g);
+    Serial.print(" B: ");
+    Serial.println(b);
 
-  if (b > 90) {
-    stop();
-    delay(50);
-    //tournerSurPlace(2, static_callback);
-    forwardPID(-0.1, 15, sensors_callback);
-    stop();
-    tournerSurPlace(180, sensors_callback);
-    stop();
-    //delay(100000);
-    return false;
-    }
+    if (b >= 95 || g >= 95) {
+        Serial.println("FOUND");
+      }
   }
 Serial.println("pt3");
 /* #####################################################

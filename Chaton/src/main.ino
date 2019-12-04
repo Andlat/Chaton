@@ -23,6 +23,9 @@ Date: Derniere date de modification
 #define PULSES_PAR_RAD 1270.05644587
 #define PULSES_PAR_DEGRE 22.1666666
 
+#define MIN_SPEED 0.15
+#define MAX_SPEED 0.25
+
 const float kp=1E-4;
 const float ki=6E-7;
 
@@ -85,7 +88,8 @@ bool started = false;
 void loop() {
   Serial.println("Starting...");
   
-  while(!started && !ROBUS_IsBumper(LEFT)){ delay(50); }
+  while(!started && !ROBUS_IsBumper(LEFT) && !Serial.available()){ delay(50); }
+  while(Serial.available()) {Serial.read();}
   started = true;
 
   if(ROBUS_IsBumper(RIGHT)){
@@ -137,12 +141,14 @@ void loop() {
 
 void tourner (int ang, bool (*sensors_callback)(float,float))
 {
-  float speed = 0.1;
+
+  float speed = 0.15;
   int nbtours=0;
   int roue = ang>0 ? 0:1;//>0 à droite, <0 à gauche
+  Serial.print("Starting Tourner with : ");
   Serial.print(ang);
+  Serial.print(" ");
   ang*=PULSES_PAR_DEGRE;
-  Serial.print(" ANgle :");
   Serial.println(ang);
   MOTOR_SetSpeed(roue,speed);
   MOTOR_SetSpeed(!roue,0);
@@ -166,6 +172,11 @@ void tourner (int ang, bool (*sensors_callback)(float,float))
 
 void forwardPID(float base_speed, float distance, bool (*sensors_callback)(float,float))
 {
+  Serial.print("Starting PID with : ");
+  Serial.print(base_speed);
+  Serial.print(" ");
+  Serial.println(distance);
+
   //reset the encoders before moving
   ENCODER_Reset(LEFT);
   ENCODER_Reset(RIGHT);
@@ -352,6 +363,15 @@ int onObstacle(int capteur_id, int servo_id){
 
 int readColor(float &r, float &g, float &b){
 
+
+
+
+  uint16_t clear, red, green, blue;
+  Serial.println("pt4");
+  //tcs.setInterrupt(false);
+  delay(60); 
+  //tcs.getRawData(&red, &green, &blue, &clear);
+  //tcs.setInterrupt(true);
   Wire.beginTransmission(0x29);
   int err = Wire.endTransmission();
 
@@ -360,20 +380,30 @@ int readColor(float &r, float &g, float &b){
       Serial.println(err);
       return err;
   }
-
-  uint16_t clear, red, green, blue;
-  Serial.println("pt4");
-  //tcs.setInterrupt(false);
-  delay(60); 
-  //tcs.getRawData(&red, &green, &blue, &clear);
-  //tcs.setInterrupt(true);
-
   Serial.print("c");
   clear = tcs.read16(TCS34725_CDATAL);
+    if (err != 0) {
+      Serial.print("I2C color senser error :");
+      Serial.println(err);
+      return err;
+  }
   Serial.print("r");
   red = tcs.read16(TCS34725_RDATAL);
+    if (err != 0) {
+      Serial.print("I2C color senser error :");
+      Serial.println(err);
+      return err;
+  }
   Serial.print("g");
   green = tcs.read16(TCS34725_GDATAL);
+  Wire.beginTransmission(0x29);
+  err = Wire.endTransmission();
+
+  if (err != 0) {
+      Serial.print("I2C color senser error :");
+      Serial.println(err);
+      return err;
+  }
   Serial.println("b");
   blue = tcs.read16(TCS34725_BDATAL);
 
@@ -479,6 +509,8 @@ bool sensors_callback(float left_speed, float right_speed){
                       ON  OBSTACLE
   ##################################################### */
   int onObstacleResult = onObstacle(CAPTEUR_PROX_AVANT_INDEX, SERVO_AVANT_INDEX);
+  Serial.print("onObstacleResult :");
+  Serial.println(onObstacleResult);
   if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
     if(onObstacleResult == true){
       //Successfully threw down obstacle
@@ -498,7 +530,10 @@ bool sensors_callback(float left_speed, float right_speed){
             Check color sensor for the permimeter
   ##################################################### */
   float r,b,g;
-  readColor(r, g, b);
+  int err = readColor(r, g, b);
+
+  if (err = 0) {
+
   Serial.print("COULEUR: R:");
   Serial.print(r);
   Serial.print(" G: ");
@@ -516,6 +551,7 @@ bool sensors_callback(float left_speed, float right_speed){
     stop();
     //delay(100000);
     return false;
+    }
   }
 Serial.println("pt3");
 /* #####################################################

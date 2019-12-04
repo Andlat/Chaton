@@ -42,7 +42,7 @@ int onObstacle();
 bool sensors_callback(float base_speed, float last_speed);
 bool static_callback();
 
-void readColor(float &r, float &g, float &b);
+int readColor(float &r, float &g, float &b);
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
 void blt();
@@ -61,7 +61,7 @@ void setup(){
 
   //Setup the servo
   SERVO_Enable(SERVO_AVANT_INDEX);
-  SERVO_SetAngle(SERVO_AVANT_INDEX, 40);
+  SERVO_SetAngle(SERVO_AVANT_INDEX, 00);
   
   initVibro();
 
@@ -140,8 +140,9 @@ void tourner (int ang, bool (*sensors_callback)(float,float))
   float speed = 0.1;
   int nbtours=0;
   int roue = ang>0 ? 0:1;//>0 à droite, <0 à gauche
-
+  Serial.print(ang);
   ang*=PULSES_PAR_DEGRE;
+  Serial.print(" ANgle :");
   Serial.println(ang);
   MOTOR_SetSpeed(roue,speed);
   MOTOR_SetSpeed(!roue,0);
@@ -149,14 +150,18 @@ void tourner (int ang, bool (*sensors_callback)(float,float))
 
   while ( abs(nbtours) < abs(ang))
   {
+    Serial.print("NBt :");
+    Serial.println(nbtours);
     delay(10);
     nbtours=ENCODER_Read(roue);
 
     //If encountered an obstacle or the perimeter, stop turning
     if(!((*sensors_callback)(roue*speed, !roue*speed))){
+      Serial.println("break");
       break;
     }
-  } 
+  }
+  stop();
 }  
 
 void forwardPID(float base_speed, float distance, bool (*sensors_callback)(float,float))
@@ -307,6 +312,7 @@ bool vibrate(){
 }
 
 bool detectObstacle(int capteur_id){
+  Serial.print("DST:");
   Serial.println(ROBUS_ReadIR(capteur_id));
   if(ROBUS_ReadIR(capteur_id) >= IR_TRIGGER){
     return true;
@@ -320,7 +326,7 @@ void throwObject(int servo_id){
 
   SERVO_SetAngle(servo_id, 120);
   delay(2000);//Try throwing the object for 3 seconds
-  SERVO_SetAngle(servo_id, 40);
+  SERVO_SetAngle(servo_id, 0);
 }
 
 /*
@@ -330,7 +336,9 @@ void throwObject(int servo_id){
  *          true: successfully threw down obstacle
  */
 int onObstacle(int capteur_id, int servo_id){
+  Serial.println("pt1");
   if(detectObstacle(capteur_id)){
+    Serial.println("pt2");
     stop();
     throwObject(servo_id);
     delay(1000);
@@ -342,19 +350,43 @@ int onObstacle(int capteur_id, int servo_id){
   return -1;
 }
 
-void readColor(float &r, float &g, float &b){
+int readColor(float &r, float &g, float &b){
+
+  Wire.beginTransmission(0x29);
+  int err = Wire.endTransmission();
+
+  if (err != 0) {
+      Serial.print("I2C color senser error :");
+      Serial.println(err);
+      return err;
+  }
+
   uint16_t clear, red, green, blue;
-
-  tcs.setInterrupt(false);
+  Serial.println("pt4");
+  //tcs.setInterrupt(false);
   delay(60); 
-  tcs.getRawData(&red, &green, &blue, &clear);
-  tcs.setInterrupt(true);
+  //tcs.getRawData(&red, &green, &blue, &clear);
+  //tcs.setInterrupt(true);
 
+  Serial.print("c");
+  clear = tcs.read16(TCS34725_CDATAL);
+  Serial.print("r");
+  red = tcs.read16(TCS34725_RDATAL);
+  Serial.print("g");
+  green = tcs.read16(TCS34725_GDATAL);
+  Serial.println("b");
+  blue = tcs.read16(TCS34725_BDATAL);
+
+
+
+
+  Serial.println("pt5");
   uint32_t sum = clear;
   r = red; r /= sum;
   g = green; g /= sum;
   b = blue; b /= sum;
   r *= 256; g *= 256; b *= 256;
+  return 0;
 }
 
 void blt() {
@@ -456,7 +488,8 @@ bool sensors_callback(float left_speed, float right_speed){
     }
     else{//Failed to throw down object. Go in the opposite direction
       //tournerSurPlace(2, static_callback);
-      forwardPID(-left_speed, 10, [](float,float){return true;});//Reculer 10 cm
+      Serial.println("test");
+      forwardPID(left_speed !=0?-left_speed:-0.1, 10, sensors_callback);//Reculer 10 cm
       return false; //Exit the function and do another movement
     }
   }
@@ -484,12 +517,13 @@ bool sensors_callback(float left_speed, float right_speed){
     //delay(100000);
     return false;
   }
-
+Serial.println("pt3");
 /* #####################################################
         Check for vibration and bluetooth commands
    ##################################################### */
-  return static_callback();
-// return true;
+  //return static_callback();
+  static_callback();
+  return true;
 }
 
 //Call back used in "static" movements. Movements that do not use the encoders. Meaning, waiting and turning on itself

@@ -281,11 +281,11 @@ bool vibrate(){
     purr();
 
     analogWrite(2,255);
-    delay(300);
-    analogWrite(2,100);
-    delay(300);
-    analogWrite(2,50);
-    delay(300);
+    delay(1000);
+    analogWrite(2,200);
+    delay(500);
+    analogWrite(2,150);
+    delay(500);
 
     stopMusic();
 

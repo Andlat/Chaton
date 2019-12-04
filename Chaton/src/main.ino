@@ -27,8 +27,8 @@ const float ki=6E-7;
 void forwardPID(float base_speed, float distance, bool (*sensors_callback)(float,float));
 void tourner(int ang, bool (*sensors_callback)(float,float));
 
-void tournerSurPlace(int ang, void (*callback)());
-void tournerSurPlaceRad(float rad, float vts, void (*callback)());
+void tournerSurPlace(int ang, bool (*callback)());
+void tournerSurPlaceRad(float rad, float vts, bool (*callback)());
 void stop();
 
 void Wait(unsigned seconds, void (*callback)());
@@ -38,7 +38,7 @@ bool detectObstacle();
 int onObstacle();
 
 bool sensors_callback(float base_speed, float last_speed);
-void static_callback();
+bool static_callback();
 
 void readColor(unsigned &r, unsigned &g, unsigned &b);
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
@@ -82,10 +82,10 @@ void loop() {
   5: Turn on itself
   6: Stop for a few seconds
    */
- unsigned mov = random(6) + 1;//6 choices
+ unsigned mov = 1;//random(6) + 1;//6 choices
   //distance to do  movement. Max is 2 meters or seconds
-  unsigned dist = random(10) + 1;//Min is 10 cm
-  speed = random(1,4) / 10.f;//Speed between 0.1f and 0.4f
+  unsigned dist = random(3) + 1;//Min is 10 cm
+  speed = random(1,3) / 10.f;//Speed between 0.1f and 0.4f
   Serial.print("MOV: ");
   Serial.println(mov);
   
@@ -162,7 +162,7 @@ void forwardPID(float base_speed, float distance, bool (*sensors_callback)(float
 
     total_encoder += ENCODER_Read(LEFT);
     //calculate difference between wheels
-    int32_t diff = ENCODER_ReadReset(LEFT)-ENCODER_ReadReset(RIGHT);
+    int32_t diff = 0;//ENCODER_ReadReset(LEFT)-ENCODER_ReadReset(RIGHT);
     diff *= 10;
     total_diff += diff;
 
@@ -173,7 +173,9 @@ void forwardPID(float base_speed, float distance, bool (*sensors_callback)(float
     //Serial.println(total_encoder);
     
     for_delay_millis = millis();
+    
     if(!((*sensors_callback)(base_speed, last_speed))){//If encountered an obstacle or is going out of the permimeter, stop the forward PID
+      Serial.print("SENSOR EXITING PID");
       break;
     }
   }
@@ -185,7 +187,7 @@ void stop()
   MOTOR_SetSpeed(RIGHT,0);
 }
 
-void tournerSurPlace(int ang, void (*callback)()){
+void tournerSurPlace(int ang, bool (*callback)()){
 
   float speed = 0.15;
   
@@ -206,7 +208,7 @@ void tournerSurPlace(int ang, void (*callback)()){
     }
 }
 
-void tournerSurPlaceRad(float rad, float vts, void (*callback)()){
+void tournerSurPlaceRad(float rad, float vts, bool (*callback)()){
   int sign = rad < 0 ? -1 : 1;
   rad*=PULSES_PAR_RAD;
 
@@ -226,7 +228,7 @@ void tournerSurPlaceRad(float rad, float vts, void (*callback)()){
     }
 }
 
-void Wait(unsigned seconds, void (*callback)()){
+void Wait(unsigned seconds, bool (*callback)()){
   long time = millis();
   while(millis()-time < seconds){
     callback();
@@ -241,7 +243,7 @@ void initVibro(){
   pinMode(A1,INPUT);
 }
 
-void vibrate(){
+bool vibrate(){
   int Mes1_D=0, Mes2_D=0, RES_D=0;
   int Mes1_G=0, Mes2_G=0, RES_G=0;
   
@@ -259,16 +261,19 @@ void vibrate(){
   if(RES_D>100 || RES_D<-100 || RES_G>100 || RES_G<-100)
   {
     analogWrite(2,255);
-    delay(500);
+    delay(300);
     analogWrite(2,100);
-    delay(500);
+    delay(300);
     analogWrite(2,50);
-    delay(500);
+    delay(300);
+    return false;
   }
   else
   {
     analogWrite(2,0);
   }
+
+  return true;
 }
 
 bool detectObstacle(int capteur_id){
@@ -352,37 +357,41 @@ void blt() {
         Serial2.print("pos_x: ");
         Serial2.println(pos_x);
 
-        r=Serial2.readStringUntil(';');
+        r=Serial2.readStringUntil('\n');
         pos_y = r.toDouble();
         Serial2.print("pos_y: ");
         Serial2.println(pos_y);
 
-        r=Serial2.readStringUntil('\n');
-        vts = r.toDouble();
-        Serial2.print("vts: ");
-        Serial2.println(vts);
 
         Serial2.flush();
 
         Serial.println("DRIVING");
-        MOTOR_SetSpeed(LEFT,0);
-        MOTOR_SetSpeed(RIGHT,0);
-      
-        delay(50);
-        rad = atan2(pos_y, pos_x);
-        tournerSurPlaceRad(rad,vts, static_callback);
+        float speed_left,speed_right; speed_left = speed_right = pos_y;
+        /* if(pos_x < 1 && pos_x > 0){
+          speed_left *= abs(pos_x);
+        }
+        else{
+          speed_right *= abs(pos_x);
+        }*/
 
-        MOTOR_SetSpeed(LEFT,0);
-        MOTOR_SetSpeed(RIGHT,0);
-      }else if("MUSIC"){
+        Serial.print("Speed: LEFT: ");
+        Serial.print(speed_left);
+        Serial.print(" RIGHT: ");
+        Serial.print(speed_right);
+
+        MOTOR_SetSpeed(LEFT,0.2*speed_left);
+        MOTOR_SetSpeed(RIGHT,0.2*speed_right);
+
+      }else if(r == "MUSIC"){
         /************************
          * CODE POUR LA MUSIQUE
          ************************/
         Wire.beginTransmission(0x05);
-        Wire.write(0x04);
+        Wire.write(0x05);
         int err = Wire.endTransmission();
         Serial.print("Sent music request: ");
         Serial.println(err);
+
       }else{//EXIT LOOP IF NOT BEING CONTROLLED
         Serial.println("Exiting");
         isON = false;
@@ -399,7 +408,7 @@ bool sensors_callback(float left_speed, float right_speed){
 /* #####################################################
                       ON  OBSTACLE
   ##################################################### */
-  int onObstacleResult = onObstacle(CAPTEUR_PROX_AVANT_INDEX, SERVO_AVANT_INDEX);
+ /* int onObstacleResult = onObstacle(CAPTEUR_PROX_AVANT_INDEX, SERVO_AVANT_INDEX);
   if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
     if(onObstacleResult == true){
       //Successfully threw down obstacle
@@ -417,26 +426,26 @@ bool sensors_callback(float left_speed, float right_speed){
 /* #####################################################
             Check color sensor for the permimeter
   ##################################################### */
-  unsigned r,b,g;
+/*  unsigned r,b,g;
   readColor(r, b, g);
   
-  if (b > 60) {
+  if (b > 100) {
     stop();
     delay(50);
     tournerSurPlace(2, static_callback);
     return false;
   }
-
+*/
 /* #####################################################
         Check for vibration and bluetooth commands
    ##################################################### */
-  static_callback();
-  
-  return true;
+  return static_callback();
+// return true;
 }
 
 //Call back used in "static" movements. Movements that do not use the encoders. Meaning, waiting and turning on itself
-void static_callback(){
-  vibrate();
+bool static_callback(){
   blt();
+  //return vibrate();
+  return true;
 }

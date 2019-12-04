@@ -104,9 +104,9 @@ void loop() {
   5: Turn on itself
   6: Stop for a few seconds
    */
- unsigned mov = 5;//random(6) + 1;//6 choices
-  //distance to do  movement. Max is 2 meters or seconds
-  unsigned dist = random(3) + 1;//Min is 10 cm
+ unsigned mov = random(6) + 1;//5 choices
+ 
+  unsigned dist = random(3) + 1;
   speed = 0.1;//random(1,3) / 10.f;//Speed between 0.1f and 0.4f
   Serial.print("MOV: ");
   Serial.println(mov);
@@ -117,17 +117,17 @@ void loop() {
       forwardPID(speed, dist*10, sensors_callback);
       break;
     case 2: 
-      tourner(-360/dist, sensors_callback);
+      tourner(-360/(dist*3), sensors_callback);
       break;
     case 3:
-      tourner(360/dist, sensors_callback);
+      tourner(360/(dist*3), sensors_callback);
       break;
     case 4:
-      tournerSurPlaceRad(2*PI/dist, speed, static_callback);
+      tournerSurPlaceRad(PI/dist, speed, sensors_callback);
       break;
     case 5:
       stop();
-      Wait(random(1,6)*1000, static_callback);//Wait between 1 and 5 seconds
+      Wait(random(1,6)*1000, sensors_callback);//Wait between 1 and 5 seconds
   }
 
   //stop();//Todo remove this after testing !
@@ -137,12 +137,12 @@ void loop() {
 
 void tourner (int ang, bool (*sensors_callback)(float,float))
 {
-  float speed = 0.2;
+  float speed = 0.1;
   int nbtours=0;
   int roue = ang>0 ? 0:1;//>0 à droite, <0 à gauche
 
   ang*=PULSES_PAR_DEGRE;
-Serial.println(ang);
+  Serial.println(ang);
   MOTOR_SetSpeed(roue,speed);
   MOTOR_SetSpeed(!roue,0);
   ENCODER_Reset(roue);
@@ -190,15 +190,17 @@ void forwardPID(float base_speed, float distance, bool (*sensors_callback)(float
 
     //set new speed
     last_speed = min(last_speed + diff*kp + total_diff*ki, 1);
-    MOTOR_SetSpeed(RIGHT, last_speed); 
+    //MOTOR_SetSpeed(RIGHT, last_speed); 
 
     //Serial.println(total_encoder);
     
     for_delay_millis = millis();
     
-    if(!((*sensors_callback)(base_speed, last_speed))){//If encountered an obstacle or is going out of the permimeter, stop the forward PID
-      Serial.print("SENSOR EXITING PID");
-      break;
+    if (base_speed > 0) {
+      if(!((*sensors_callback)(base_speed, last_speed))){//If encountered an obstacle or is going out of the permimeter, stop the forward PID
+        Serial.print("SENSOR EXITING PID");
+        break;
+      }
     }
   }
 }
@@ -211,7 +213,7 @@ void stop()
 
 void tournerSurPlace(int ang, bool (*callback)()){
 
-  float speed = 0.15;
+  float speed = 0.1;
   
   int sign = ang < 0 ? -1 : 1;
   ang*=PULSES_PAR_DEGRE;
@@ -237,8 +239,8 @@ void tournerSurPlaceRad(float rad, float vts, bool (*callback)()){
   int nbtours = 0;
   ENCODER_Reset(0);
   ENCODER_Reset(1);
-  MOTOR_SetSpeed(0,sign*rad);
-  MOTOR_SetSpeed(1,-sign*rad);
+  MOTOR_SetSpeed(0,sign*vts);
+  MOTOR_SetSpeed(1,-sign*vts);
 
   while ( abs(nbtours) <= abs(rad))
     {
@@ -280,8 +282,9 @@ bool vibrate(){
   RES_D=(Mes1_D-Mes2_D);
   RES_G=(Mes1_G-Mes2_G);
   
-  if(RES_D>100 || RES_D<-100 || RES_G>100 || RES_G<-100)
+  if(RES_D>25 || RES_D<-25 || RES_G>25 || RES_G<-25)
   {
+    Serial.println("PURRING!!");
     purr();
 
     analogWrite(2,255);
@@ -412,11 +415,20 @@ void blt() {
         MOTOR_SetSpeed(LEFT,0.2*speed_left);
         MOTOR_SetSpeed(RIGHT,0.2*speed_right);
 
+        delay(200);
+
       }else if(r == "MUSIC"){
         /************************
          * CODE POUR LA MUSIQUE
          ************************/
         appPurr();
+
+      }else if(r == "FOOD"){
+        
+        
+      }else if(r == "STOP_RAND_PURR"){
+        stopRandomPurr();
+        Serial.print("STOPPING RANDOM PURRING");
 
       }else{//EXIT LOOP IF NOT BEING CONTROLLED
         Serial.println("Exiting");
@@ -443,8 +455,8 @@ bool sensors_callback(float left_speed, float right_speed){
       MOTOR_SetSpeed(RIGHT, right_speed);
     }
     else{//Failed to throw down object. Go in the opposite direction
-      tournerSurPlace(2, static_callback);
-      forwardPID(left_speed, 10, sensors_callback);//Advance 10 cm before switching to another movement
+      //tournerSurPlace(2, static_callback);
+      forwardPID(-left_speed, 10, [](float,float){return true;});//Reculer 10 cm
       return false; //Exit the function and do another movement
     }
   }
@@ -464,7 +476,10 @@ bool sensors_callback(float left_speed, float right_speed){
   if (b > 90) {
     stop();
     delay(50);
-    tournerSurPlace(2, static_callback);
+    //tournerSurPlace(2, static_callback);
+    forwardPID(-0.1, 15, sensors_callback);
+    stop();
+    tournerSurPlace(180, sensors_callback);
     stop();
     //delay(100000);
     return false;
@@ -479,7 +494,6 @@ bool sensors_callback(float left_speed, float right_speed){
 
 //Call back used in "static" movements. Movements that do not use the encoders. Meaning, waiting and turning on itself
 bool static_callback(){
-  //ResetProgramCallback();
   blt();
   return vibrate();
   //return true;

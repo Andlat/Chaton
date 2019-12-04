@@ -47,7 +47,9 @@ Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS3472
 
 void blt();
 
+void agressivePurr();
 void purr();
+void playMusic(int);
 void stopMusic();
 
 void setup(){
@@ -74,6 +76,8 @@ void setup(){
 
   //Init music port
   Wire.begin();
+
+  startRandomPurr();//Request random purring to the raspberry pi
 }
 
 float speed;
@@ -309,6 +313,8 @@ bool detectObstacle(int capteur_id){
 }
 
 void throwObject(int servo_id){
+  agressivePurr();
+
   SERVO_SetAngle(servo_id, 120);
   delay(2000);//Try throwing the object for 3 seconds
   SERVO_SetAngle(servo_id, 40);
@@ -410,11 +416,7 @@ void blt() {
         /************************
          * CODE POUR LA MUSIQUE
          ************************/
-        Wire.beginTransmission(0x05);
-        Wire.write(0x05);
-        int err = Wire.endTransmission();
-        Serial.print("Sent music request: ");
-        Serial.println(err);
+        appPurr();
 
       }else{//EXIT LOOP IF NOT BEING CONTROLLED
         Serial.println("Exiting");
@@ -501,9 +503,26 @@ void ResetProgramCallback(){
   }
 }
 
+
+void appPurr(){
+   playMusic(0x05);
+}
+void agressivePurr(){
+   playMusic(0x07);
+}
 void purr(){
+   playMusic(0x04);
+}
+void startRandomPurr(){
+  playMusic(0x02);
+}
+void stopRandomPurr(){
+   playMusic(0x03);
+}
+
+void playMusic(int code){
   Wire.beginTransmission(0x05);
-  Wire.write(0x04);
+  Wire.write(code);
   int err = Wire.endTransmission();
   Serial.print("Sent music request: ");
   Serial.println(err);
@@ -513,6 +532,6 @@ void stopMusic(){
   Wire.beginTransmission(0x05);
   Wire.write(0x01);
   int err = Wire.endTransmission();
-  Serial.print("Sent music request: ");
+  Serial.print("Sent STOP music request: ");
   Serial.println(err);
 }

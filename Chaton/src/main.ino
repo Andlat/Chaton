@@ -13,6 +13,8 @@ Date: Derniere date de modification
 #include <math.h>
 #include <Wire.h>
 
+#define RESET_PIN 52
+
 #define IR_TRIGGER 300 // ~ 15 cm
 
 #define CAPTEUR_PROX_AVANT_INDEX 0
@@ -31,7 +33,7 @@ void tournerSurPlace(int ang, bool (*callback)());
 void tournerSurPlaceRad(float rad, float vts, bool (*callback)());
 void stop();
 
-void Wait(unsigned seconds, void (*callback)());
+void Wait(unsigned seconds, bool (*callback)());
 
 void throwObject();
 bool detectObstacle();
@@ -40,15 +42,22 @@ int onObstacle();
 bool sensors_callback(float base_speed, float last_speed);
 bool static_callback();
 
-void readColor(unsigned &r, unsigned &g, unsigned &b);
+void readColor(float &r, float &g, float &b);
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
 void blt();
+
+void purr();
+void stopMusic();
 
 void setup(){
   BoardInit();
   Serial.begin(9600);
 
+  //Setup the reset pin
+  //initResetPin();
+
+  //Setup the servo
   SERVO_Enable(SERVO_AVANT_INDEX);
   SERVO_SetAngle(SERVO_AVANT_INDEX, 40);
   
@@ -68,11 +77,20 @@ void setup(){
 }
 
 float speed;
-unsigned started = false;
+bool started = false;
 void loop() {
-  Serial.print("Starting...");
-  while(!started && !ROBUS_IsBumper(LEFT)) delay(50);
+  Serial.println("Starting...");
+  
+  while(!started && !ROBUS_IsBumper(LEFT)){ delay(50); }
   started = true;
+
+  if(ROBUS_IsBumper(RIGHT)){
+    Serial.println("STOP");
+    started=false;
+    stop();
+    
+    return;
+  }
 
   //Random movements
   /*
@@ -82,10 +100,10 @@ void loop() {
   5: Turn on itself
   6: Stop for a few seconds
    */
- unsigned mov = 1;//random(6) + 1;//6 choices
+ unsigned mov = 5;//random(6) + 1;//6 choices
   //distance to do  movement. Max is 2 meters or seconds
   unsigned dist = random(3) + 1;//Min is 10 cm
-  speed = random(1,3) / 10.f;//Speed between 0.1f and 0.4f
+  speed = 0.1;//random(1,3) / 10.f;//Speed between 0.1f and 0.4f
   Serial.print("MOV: ");
   Serial.println(mov);
   
@@ -260,12 +278,17 @@ bool vibrate(){
   
   if(RES_D>100 || RES_D<-100 || RES_G>100 || RES_G<-100)
   {
+    purr();
+
     analogWrite(2,255);
     delay(300);
     analogWrite(2,100);
     delay(300);
     analogWrite(2,50);
     delay(300);
+
+    stopMusic();
+
     return false;
   }
   else
@@ -310,20 +333,19 @@ int onObstacle(int capteur_id, int servo_id){
   return -1;
 }
 
-void readColor(unsigned &r, unsigned &g, unsigned &b){
+void readColor(float &r, float &g, float &b){
   uint16_t clear, red, green, blue;
 
-  tcs.setInterrupt(false);//Light LED
+  tcs.setInterrupt(false);
   delay(60); 
-
   tcs.getRawData(&red, &green, &blue, &clear);
-  tcs.setInterrupt(true);//Close LED
+  tcs.setInterrupt(true);
 
   uint32_t sum = clear;
-
-  r = red / sum * 256;
-  g = green / sum * 256;
-  b = blue / sum * 256;
+  r = red; r /= sum;
+  g = green; g /= sum;
+  b = blue; b /= sum;
+  r *= 256; g *= 256; b *= 256;
 }
 
 void blt() {
@@ -366,13 +388,15 @@ void blt() {
         Serial2.flush();
 
         Serial.println("DRIVING");
-        float speed_left,speed_right; speed_left = speed_right = pos_y;
-        /* if(pos_x < 1 && pos_x > 0){
-          speed_left *= abs(pos_x);
+        float speed_left = pos_y,
+              speed_right = pos_y;
+         
+        if(pos_x < 0){//Tourner a gauche
+          speed_left *= (1-abs(pos_x));
         }
-        else{
-          speed_right *= abs(pos_x);
-        }*/
+        else{//Tourner a droite
+          speed_right *= (1-abs(pos_x));
+        }
 
         Serial.print("Speed: LEFT: ");
         Serial.print(speed_left);
@@ -408,7 +432,7 @@ bool sensors_callback(float left_speed, float right_speed){
 /* #####################################################
                       ON  OBSTACLE
   ##################################################### */
- /* int onObstacleResult = onObstacle(CAPTEUR_PROX_AVANT_INDEX, SERVO_AVANT_INDEX);
+  int onObstacleResult = onObstacle(CAPTEUR_PROX_AVANT_INDEX, SERVO_AVANT_INDEX);
   if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
     if(onObstacleResult == true){
       //Successfully threw down obstacle
@@ -426,16 +450,24 @@ bool sensors_callback(float left_speed, float right_speed){
 /* #####################################################
             Check color sensor for the permimeter
   ##################################################### */
-/*  unsigned r,b,g;
-  readColor(r, b, g);
-  
-  if (b > 100) {
+  float r,b,g;
+  readColor(r, g, b);
+  Serial.print("COULEUR: R:");
+  Serial.print(r);
+  Serial.print(" G: ");
+  Serial.print(g);
+  Serial.print(" B: ");
+  Serial.println(b);
+
+  if (b > 90) {
     stop();
     delay(50);
     tournerSurPlace(2, static_callback);
+    stop();
+    //delay(100000);
     return false;
   }
-*/
+
 /* #####################################################
         Check for vibration and bluetooth commands
    ##################################################### */
@@ -445,7 +477,42 @@ bool sensors_callback(float left_speed, float right_speed){
 
 //Call back used in "static" movements. Movements that do not use the encoders. Meaning, waiting and turning on itself
 bool static_callback(){
+  //ResetProgramCallback();
   blt();
-  //return vibrate();
-  return true;
+  return vibrate();
+  //return true;
+}
+
+
+void initResetPin(){
+  pinMode(RESET_PIN, OUTPUT);
+  digitalWrite(RESET_PIN, LOW);
+}
+
+void ResetProgramCallback(){
+  if(ROBUS_IsBumper(RIGHT)){
+    Serial.println("STOP");
+    started=false;
+    stop();
+
+    //digitalWrite(RESET_PIN, HIGH);
+    
+    return;
+  }
+}
+
+void purr(){
+  Wire.beginTransmission(0x05);
+  Wire.write(0x04);
+  int err = Wire.endTransmission();
+  Serial.print("Sent music request: ");
+  Serial.println(err);
+}
+
+void stopMusic(){
+  Wire.beginTransmission(0x05);
+  Wire.write(0x01);
+  int err = Wire.endTransmission();
+  Serial.print("Sent music request: ");
+  Serial.println(err);
 }

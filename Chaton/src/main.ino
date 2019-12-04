@@ -7,7 +7,6 @@ Date: Derniere date de modification
 */
 
 #include <LibRobus.h>
-//#include <Wire.h>
 #include "Adafruit_TCS34725.h"
 
 #include <math.h>
@@ -64,7 +63,7 @@ void setup(){
 
   //Setup the servo
   SERVO_Enable(SERVO_AVANT_INDEX);
-  SERVO_SetAngle(SERVO_AVANT_INDEX, 00);
+  SERVO_SetAngle(SERVO_AVANT_INDEX, 0);
   
   initVibro();
 
@@ -81,12 +80,14 @@ void setup(){
   Wire.begin();
 
   startRandomPurr();//Request random purring to the raspberry pi
+
+    Serial.println("Starting...");
 }
 
 float speed;
 bool started = false;
 void loop() {
-  Serial.println("Starting...");
+
   
   while(!started && !ROBUS_IsBumper(LEFT) && !Serial.available()){ delay(50); }
   while(Serial.available()) {Serial.read();}
@@ -100,13 +101,26 @@ void loop() {
     return;
   }
 */
-
-  //forwardPID(0.2f, 20, sensors_callback);
-  Wait(5000, sensors_callback);
-  //forwardPID(-0.2f, 20, sensors_callback);
-  //Wait(5000, sensors_callback);
+  Wait(2000, sensors_callback);
+//  tournerSurPlaceRad(PI,MIN_SPEED, sensors_callback);
 
 
+/*
+  forwardPID(0.2f, 10, sensors_callback);
+  tournerSurPlaceRad(PI,MIN_SPEED, sensors_callback);
+  Wait(1000, sensors_callback);
+  tournerSurPlaceRad(PI,MIN_SPEED, sensors_callback);
+  forwardPID(0.2f, 5, sensors_callback);
+  //tournerSurPlaceRad(PI,MIN_SPEED, sensors_callback);
+  Wait(1500, sensors_callback);
+  forwardPID(0.2f, 10, sensors_callback);
+  Wait(3000, sensors_callback);
+  //tournerSurPlaceRad(PI,MIN_SPEED, sensors_callback);
+  forwardPID(0.2f, 15, sensors_callback);
+  //tournerSurPlaceRad(PI,MIN_SPEED, sensors_callback);
+  Wait(4000, sensors_callback);
+  forwardPID(0.2f, 15, sensors_callback);
+*/
 
   //Random movements
   /*
@@ -116,13 +130,14 @@ void loop() {
   5: Turn on itself
   6: Stop for a few seconds
    */
- /*unsigned mov = 1;//random(6) + 1;//5 choices
+  /*unsigned mov = 1;//random(6) + 1;//5 choices
  
   unsigned dist = random(3) + 1;
   speed = 0.1;//random(1,3) / 10.f;//Speed between 0.1f and 0.4f
-  Serial.print("MOV: ");
+  Serial.print("Movement: ");
   Serial.println(mov);
   
+
   //stop();//Needed ?
   switch(mov){
     case 1:
@@ -140,12 +155,12 @@ void loop() {
     case 5:
       stop();
       Wait(random(1,6)*1000, sensors_callback);//Wait between 1 and 5 seconds
-  }
+  }*/
 
   //stop();//Todo remove this after testing !
 
   //delay(50);
-  */
+  
 }
 
 void tourner (int ang, bool (*sensors_callback)(float,float))
@@ -165,14 +180,12 @@ void tourner (int ang, bool (*sensors_callback)(float,float))
 
   while ( abs(nbtours) < abs(ang))
   {
-    Serial.print("NBt :");
-    Serial.println(nbtours);
     delay(10);
     nbtours=ENCODER_Read(roue);
 
     //If encountered an obstacle or the perimeter, stop turning
     if(!((*sensors_callback)(roue*speed, !roue*speed))){
-      Serial.println("break");
+      Serial.println("SENSOR EXITING TOURNER");
       break;
     }
   }
@@ -223,7 +236,7 @@ void forwardPID(float base_speed, float distance, bool (*sensors_callback)(float
     
     if (base_speed > 0) {
       if(!((*sensors_callback)(base_speed, last_speed))){//If encountered an obstacle or is going out of the permimeter, stop the forward PID
-        Serial.print("SENSOR EXITING PID");
+        Serial.println("SENSOR EXITING PID");
         break;
       }
     }
@@ -257,7 +270,7 @@ void tournerSurPlace(int ang, bool (*callback)()){
     }
 }
 
-void tournerSurPlaceRad(float rad, float vts, bool (*callback)()){
+void tournerSurPlaceRad(float rad, float vts, bool (*callback)(float,float)){
   int sign = rad < 0 ? -1 : 1;
   rad*=PULSES_PAR_RAD;
 
@@ -267,14 +280,21 @@ void tournerSurPlaceRad(float rad, float vts, bool (*callback)()){
   MOTOR_SetSpeed(0,sign*vts);
   MOTOR_SetSpeed(1,-sign*vts);
 
+  
   while ( abs(nbtours) <= abs(rad))
     {
-      //Serial.println("ENTREE");
-      delay(10);
-      nbtours=(abs(ENCODER_Read(0)) + abs(ENCODER_Read(1)))*0.5;
+      Serial.print("Demi tour sur place :");
+      Serial.print(nbtours);
+      Serial.print(" sur ");
+      Serial.println(rad);
 
-      callback();
+      //Serial.println("ENTREE");
+      //delay(10);
+      //nbtours=(abs(ENCODER_Read(0)) + abs(ENCODER_Read(1)))*0.5;
+
+     // callback(vts,vts);
     }
+    stop(); 
 }
 
 void Wait(unsigned seconds, bool (*callback)(float,float)){
@@ -306,13 +326,11 @@ bool vibrate(){
 
   RES_D=(Mes1_D-Mes2_D);
   RES_G=(Mes1_G-Mes2_G);
-  Serial.println("donnee vibro");
-  Serial.println(RES_D);
-  Serial.println(RES_G);
-  
-  if(RES_D>25 || RES_D<-25 || RES_G>25 || RES_G<-25)
+    
+  const int limite = 20;
+  if(abs(RES_D)>limite || abs(RES_G)>limite)
   {
-    Serial.println("PURRING!!");
+    //Serial.println("PURRING!!");
     purr();
 
     analogWrite(2,255);
@@ -335,9 +353,10 @@ bool vibrate(){
 }
 
 bool detectObstacle(int capteur_id){
-  Serial.print("DST:");
-  Serial.println(ROBUS_ReadIR(capteur_id));
-  if(ROBUS_ReadIR(capteur_id) >= IR_TRIGGER){
+  Serial.print("Distance obstacle : ");
+  int dist = ROBUS_ReadIR(capteur_id);
+  Serial.println(dist);
+  if(dist >= IR_TRIGGER){
     return true;
   }
 
@@ -348,7 +367,7 @@ void throwObject(int servo_id){
   agressivePurr();
 
   SERVO_SetAngle(servo_id, 120);
-  delay(2000);//Try throwing the object for 3 seconds
+  delay(1500);//Try throwing the object for 3 seconds
   SERVO_SetAngle(servo_id, 0);
 }
 
@@ -359,15 +378,15 @@ void throwObject(int servo_id){
  *          true: successfully threw down obstacle
  */
 int onObstacle(int capteur_id, int servo_id){
-  Serial.println("pt1");
   if(detectObstacle(capteur_id)){
-    Serial.println("pt2");
+    Serial.print("objet trouvé");
     stop();
     throwObject(servo_id);
     delay(1000);
     if(detectObstacle(capteur_id)){//Arm was unable to throw the object
       return false;
     }
+
     return true;
   }
   return -1;
@@ -379,56 +398,57 @@ int readColor(float &r, float &g, float &b){
 
 
   uint16_t clear, red, green, blue;
-  Serial.println("pt4");
-  //tcs.setInterrupt(false);
+  tcs.setInterrupt(false);
   delay(60); 
-  //tcs.getRawData(&red, &green, &blue, &clear);
-  //tcs.setInterrupt(true);
+
   Wire.beginTransmission(0x29);
   int err = Wire.endTransmission();
 
+  Serial.print("c");
   if (err != 0) {
       Serial.print("I2C color senser error :");
       Serial.println(err);
       return err;
   }
-  Serial.print("c");
   clear = tcs.read16(TCS34725_CDATAL);
-    if (err != 0) {
-      Serial.print("I2C color senser error :");
-      Serial.println(err);
-      return err;
-  }
+  Serial.print("\b");
+
   Serial.print("r");
-  red = tcs.read16(TCS34725_RDATAL);
-    if (err != 0) {
+  if (err != 0) {
       Serial.print("I2C color senser error :");
       Serial.println(err);
       return err;
   }
+  red = tcs.read16(TCS34725_RDATAL);
+  Serial.print("\b");
+
   Serial.print("g");
+  if (err != 0) {
+      Serial.print("I2C color senser error :");
+      Serial.println(err);
+      return err;
+  }
   green = tcs.read16(TCS34725_GDATAL);
+  Serial.print("\b");
+
+  Serial.print("b");
   Wire.beginTransmission(0x29);
   err = Wire.endTransmission();
-
   if (err != 0) {
       Serial.print("I2C color senser error :");
       Serial.println(err);
       return err;
   }
-  Serial.println("b");
   blue = tcs.read16(TCS34725_BDATAL);
+  Serial.print("\b");
+  tcs.setInterrupt(true);
 
-
-
-
-  Serial.println("pt5");
   uint32_t sum = clear;
   r = red; r /= sum;
   g = green; g /= sum;
   b = blue; b /= sum;
   r *= 256; g *= 256; b *= 256;
-  Serial.print("COLOR: R ");
+  Serial.print("COULEUR: R ");
   Serial.print(r);
   Serial.print(" G: ");
   Serial.print(g);
@@ -453,7 +473,7 @@ void blt() {
     Serial2.println("Waiting for String");
     delay(1000);
     if(Serial2.available()/* && isEmpty*/){
-     Serial.println("SERIAL2 AVAILABLE");
+     Serial.println("PENDING BLUETOOTH DATA");
       String r=Serial2.readStringUntil(';');
       r.trim();
       //if(r!=""){ Serial2.println("IS EMPTY"); isEmpty=false;}else{continue;}
@@ -511,7 +531,7 @@ void blt() {
         Serial.print("STOPPING RANDOM PURRING");
 
       }else{//EXIT LOOP IF NOT BEING CONTROLLED
-        Serial.println("Exiting");
+        Serial.println("EXITING BLUETOOTH");
         isON = false;
         return;
       }   
@@ -527,11 +547,9 @@ bool sensors_callback(float left_speed, float right_speed){
                       ON  OBSTACLE
   ##################################################### */
   int onObstacleResult = onObstacle(CAPTEUR_PROX_AVANT_INDEX, SERVO_AVANT_INDEX);
-  Serial.print("onObstacleResult :");
-  Serial.println(onObstacleResult);
   if(onObstacleResult != -1){//Check if the robot stopped because of an obstacle
     if(onObstacleResult == true){
-       Serial.println("REUSSI TASSER LOBJET");
+       //Serial.println("REUSSI TASSER LOBJET");
       //Successfully threw down obstacle
       //Reset motors to good speed
       //MOTOR_SetSpeed(LEFT, left_speed);
@@ -540,7 +558,7 @@ bool sensors_callback(float left_speed, float right_speed){
     }
     else{//Failed to throw down object. Go in the opposite direction
       //tournerSurPlace(2, static_callback);
-      Serial.println("PAS CAPABLE DE TASSER L'OBJET");
+      //Serial.println("PAS CAPABLE DE TASSER L'OBJET");
       //forwardPID(left_speed !=0?-left_speed:-0.1, 10, sensors_callback);//Reculer 10 cm
       return false; //Exit the function and do another movement
     }
@@ -552,20 +570,14 @@ bool sensors_callback(float left_speed, float right_speed){
   float r,b,g;
   int err = readColor(r, g, b);
 
-  if (err = 0) {
+  if (err == 0) {
 
-    Serial.print("COULEUR: R:");
-    Serial.print(r);
-    Serial.print(" G: ");
-    Serial.print(g);
-    Serial.print(" B: ");
-    Serial.println(b);
-
-    if (b >= 95 || g >= 95) {
-        Serial.println("FOUND");
+    const int limite = 90;
+    if (b >= limite || g >= limite) {
+        Serial.println("FOUND LINE");
+        tournerSurPlaceRad(PI,0.15,[](float, float){return true;});
       }
   }
-Serial.println("pt3");
 /* #####################################################
         Check for vibration and bluetooth commands
    ##################################################### */
@@ -577,15 +589,11 @@ Serial.println("pt3");
 //Call back used in "static" movements. Movements that do not use the encoders. Meaning, waiting and turning on itself
 bool static_callback(){
   blt();
+  i2c_scan();
   return vibrate();
   //return true;
 }
 
-
-void initResetPin(){
-  pinMode(RESET_PIN, OUTPUT);
-  digitalWrite(RESET_PIN, LOW);
-}
 
 void ResetProgramCallback(){
   if(ROBUS_IsBumper(RIGHT)){
@@ -620,7 +628,9 @@ void playMusic(int code){
   Wire.beginTransmission(0x05);
   Wire.write(code);
   int err = Wire.endTransmission();
-  Serial.print("Sent music request: ");
+  Serial.print("Sent music 0x0");
+  Serial.print(code, HEX);
+  Serial.print(" request: ");
   Serial.println(err);
 }
 
@@ -630,4 +640,31 @@ void stopMusic(){
   int err = Wire.endTransmission();
   Serial.print("Sent STOP music request: ");
   Serial.println(err);
+}
+
+void i2c_scan(){
+  byte error, address;
+  for(address = 1; address < 127; address++ ) 
+  {
+    // The i2c_scanner uses the return value of
+    // the Write.endTransmisstion to see if
+    // a device did acknowledge to the address.
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0)
+    {
+      Serial.print("I2C device found at address 0x");
+      if (address<16) 
+        Serial.print("0");
+      Serial.println(address,HEX);
+    }
+    else if (error==4) 
+    {
+      Serial.print("Unknown error at address 0x");
+      if (address<16) 
+        Serial.print("0");
+      Serial.println(address,HEX);
+    }    
+  }
 }
